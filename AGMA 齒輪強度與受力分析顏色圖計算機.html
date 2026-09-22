@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AGMA 齒輪強度與受力分析顏色圖計算機 (公式動態顯示版)</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #34495e;
+            --accent-color: #e74c3c;
+            --bg-color: #f1f2f6;
+            --card-bg: #ffffff;
+            --border-color: #ced4da;
+            --success-color: #2ed573;
+            --warning-color: #ffa502;
+            --danger-color: #ff4757;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: "Helvetica Neue", Helvetica, Arial, "PingFang TC", sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: #333;
+            line-height: 1.5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1150px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.15);
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 20px;
+            font-size: 22px;
+            border-bottom: 3px solid var(--accent-color);
+            padding-bottom: 8px;
+        }
+
+        .main-layout {
+            display: grid;
+            grid-template-columns: 380px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 900px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: #ffffff;
+            padding: 18px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+        }
+
+        h2 {
+            font-size: 16px;
+            color: var(--secondary-color);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+        }
+
+        h2::before {
+            content: "";
+            display: inline-block;
+            width: 4px;
+            height: 16px;
+            background-color: var(--accent-color);
+            margin-right: 8px;
+            border-radius: 2px;
+        }
+
+        .form-group {
+            margin-bottom: 12px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 4px;
+            font-weight: bold;
+            font-size: 13px;
+            color: #4b5563;
+        }
+
+        input[type="number"], select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid var(--border-color);
+            border-radius: 4px;
+            font-size: 13px;
+        }
+
+        input:disabled, select:disabled {
+            background-color: #e9ecef;
+            color: #6c757d;
+        }
+
+        .btn-calc {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 15px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-top: 5px;
+        }
+
+        .btn-calc:hover {
+            background-color: #1a252f;
+        }
+
+        .visual-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .dashboard-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .metric-card {
+            background: #f8f9fa;
+            border-left: 5px solid #ccc;
+            padding: 12px;
+            border-radius: 4px;
+        }
+        .metric-card.safe { border-left-color: var(--success-color); }
+        .metric-card.warning { border-left-color: var(--warning-color); }
+        .metric-card.danger { border-left-color: var(--danger-color); }
+
+        .metric-title { font-size: 12px; color: #666; font-weight: bold; }
+        .metric-value { font-size: 24px; font-weight: bold; margin: 2px 0; }
+        .metric-status { font-size: 11px; font-weight: bold; }
+
+        .canvas-wrapper {
+            position: relative;
+            background: #1e272e; 
+            border-radius: 6px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 15px;
+            border: 2px solid #111;
+        }
+
+        canvas {
+            border-radius: 4px;
+            max-width: 100%;
+        }
+
+        .color-bar-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: #f8f9fa;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 11px;
+            font-weight: bold;
+        }
+        .color-bar {
+            flex: 1;
+            height: 12px;
+            background: linear-gradient(to right, #0000ff, #00ffff, #00ff00, #ffff00, #ff0000);
+            border-radius: 2px;
+        }
+
+        /* 公式與歷程顯示面板 */
+        .formula-log-panel {
+            background: #fdfdfd;
+            border: 1px solid #dcdde1;
+            border-radius: 6px;
+            padding: 15px;
+            font-size: 12.5px;
+        }
+
+        .formula-block {
+            background: #f5f6fa;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 8px 0;
+            font-family: "Courier New", Courier, monospace;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            color: #2f3640;
+            border-left: 3px solid var(--primary-color);
+        }
+        
+        .math-symbol {
+            font-weight: bold;
+            color: #c23616;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>AGMA 齒輪強度與受力分析顏色圖計算機</h1>
+    
+    <div class="main-layout">
+        <!-- 左側面板 -->
+        <div class="panel">
+            <h2>設計參數輸入</h2>
+            <div class="form-group">
+                <label for="module">模數 m (Module)</label>
+                <input type="number" id="module" value="4" step="0.1" min="0.5">
+            </div>
+            <div class="form-group">
+                <label for="teeth">齒數 z (Number of Teeth)</label>
+                <input type="number" id="teeth" value="22" step="1" min="10">
+            </div>
+            <div class="form-group">
+                <label for="facewidth">齒寬 b (mm)</label>
+                <input type="number" id="facewidth" value="35" step="1" min="1">
+            </div>
+            <div class="form-group">
+                <label for="material">齒輪材質</label>
+                <select id="material" onchange="handleUIFeedback()">
+                    <option value="SCM440">SCM440 (鉻鉬鋼)</option>
+                    <option value="black_cross">黑十字 (高強度合金鋼)</option>
+                    <option value="carburizing_steel">20CrMnTi/SCM415 (滲碳鋼)</option>
+                    <option value="S45C">S45C (中碳鋼)</option>
+                    <option value="mc_nylon">MC 尼龍 (工程塑膠)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="heattreat">熱處理方式</label>
+                <select id="heattreat" onchange="handleUIFeedback()">
+                    <option value="carburizing">滲碳淬火 (Carburizing)</option>
+                    <option value="induction">高週波淬火 (Induction)</option>
+                    <option value="thermal">調質處理 (Thermal Refining / Hrc22~24)</option>
+                    <option value="none">無 (生材狀態 / Raw)</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="hardness">表面硬度 (HRC)</label>
+                <input type="number" id="hardness" value="55" min="1" max="70">
+            </div>
+            <div class="form-group">
+                <label for="torque">輸入扭矩 T (N·m)</label>
+                <input type="number" id="torque" value="180" step="5" min="0.1">
+            </div>
+            <button class="btn-calc" onclick="runAnalysis()">執行 AGMA 強度分析</button>
+        </div>
+        
+        <!-- 右側面板 -->
+        <div class="visual-container">
+            <div class="dashboard-row">
+                <div class="metric-card" id="card-bending">
+                    <div class="metric-title">彎曲疲勞安全係數 S_F (AGMA)</div>
+                    <div class="metric-value" id="val-bending">--</div>
+                    <div class="metric-status" id="status-bending">狀態：等待計算</div>
+                </div>
+                <div class="metric-card" id="card-contact">
+                    <div class="metric-title">接觸疲勞安全係數 S_H (AGMA)</div>
+                    <div class="metric-value" id="val-contact">--</div>
+                    <div class="metric-status" id="status-contact">狀態：等待計算</div>
+                </div>
+            </div>
+
+            <!-- Canvas 受力顏色圖 -->
+            <div class="canvas-wrapper">
+                <canvas id="stressCanvas" width="550" height="350"></canvas>
+            </div>
+
+            <!-- 色階尺 -->
+            <div class="color-bar-container">
+                <span>無應力 (藍)</span>
+                <div class="color-bar"></div>
+                <span>100%+ 屈服極限 (紅)</span>
+            </div>
+
+            <!-- 動態公式與歷程紀錄面板 -->
+            <div class="formula-log-panel">
+                <h2>AGMA 物理公式與數值代入歷程</h2>
+                
+                <div>1. 輪齒幾何與切向載荷 (Tangential Force):</div>
+                <div class="formula-block" id="log-geometry">---</div>
+
+                <div>2. AGMA 輪齒彎曲工作應力與安全係數 ($S_F$):</div>
+                <div class="formula-block" id="log-bending">---</div>
+
+                <div>3. AGMA 輪齒接觸工作應力與安全係數 ($S_H$):</div>
+                <div class="formula-block" id="log-contact">---</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function handleUIFeedback() {
+    const material = document.getElementById('material').value;
+    const heattreat = document.getElementById('heattreat').value;
+    const hardnessInput = document.getElementById('hardness');
+    const heattreatSelect = document.getElementById('heattreat');
+
+    if (material === 'mc_nylon') {
+        hardnessInput.value = "10";
+        heattreatSelect.value = "none";
+        hardnessInput.disabled = true;
+        heattreatSelect.disabled = true;
+        return;
+    }
+
+    hardnessInput.disabled = false;
+    heattreatSelect.disabled = false;
+
+    if (heattreat === 'thermal') {
+        hardnessInput.value = "23";
+        hardnessInput.disabled = true;
+    } else if (heattreat === 'none') {
+        hardnessInput.value = "18";
+        hardnessInput.disabled = true;
+    } else {
+        if (hardnessInput.value <= 23 || hardnessInput.value == 18) {
+            hardnessInput.value = "55";
+        }
+    }
+}
+
+function runAnalysis() {
+    const m = parseFloat(document.getElementById('module').value);
+    const z = parseInt(document.getElementById('teeth').value);
+    const b = parseFloat(document.getElementById('facewidth').value);
+    const material = document.getElementById('material').value;
+    const heattreat = document.getElementById('heattreat').value;
+    const hrc = parseFloat(document.getElementById('hardness').value);
+    const T = parseFloat(document.getElementById('torque').value);
+
+    if (m<=0 || z<=0 || b<=0 || T<=0) { alert("請填入有效的正數！"); return; }
+
+    // 1. 幾何核心公式
+    const d = m * z;
+    const ft = (2000 * T) / d;
+
+    // 2. 形狀與動態修正
+    let Y_F = 0.3 + 0.7 / (1 + 20 / z);
+    if (z < 17) Y_F *= 0.88;
+    const Kv = 1.3;
+
+    // 3. 工作應力計算
+    const sigma_F = (ft / (b * m)) * (1 / Y_F) * Kv;
+    let ZE = 189.8; 
+    if (material === 'mc_nylon') ZE = 25.0;
+    const ZH = 2.5; 
+    const sigma_H = ZE * Math.sqrt((ft / (b * d)) * ZH) * Math.sqrt(Kv);
+
+    // 4. 材料許用應力極限
+    let base_sig_F = 0; let base_sig_H = 0;
+    switch(material) {
+        case 'black_cross':       base_sig_F = hrc * 9.5; base_sig_H = hrc * 29.0; break;
+        case 'SCM440':            base_sig_F = hrc * 8.8; base_sig_H = hrc * 28.0; break;
+        case 'carburizing_steel': base_sig_F = hrc * 8.5; base_sig_H = hrc * 27.5; break;
+        case 'S45C':              base_sig_F = hrc * 7.2; base_sig_H = hrc * 23.0; break;
+        case 'mc_nylon':          base_sig_F = 65.0;      base_sig_H = 45.0;       break;
+    }
+
+    let factor_F = 1.0; let factor_H = 1.0;
+    if (material !== 'mc_nylon') {
+        if (heattreat === 'carburizing') { factor_F = 1.15; factor_H = 1.10; }
+        else if (heattreat === 'induction') { factor_F = 1.00; factor_H = 1.00; }
+        else if (heattreat === 'thermal') { factor_F = 1.05; factor_H = 0.90; }
+        else if (heattreat === 'none') { factor_F = 0.55; factor_H = 0.50; }
+    }
+
+    const allowable_F = base_sig_F * factor_F;
+    const allowable_H = base_sig_H * factor_H;
+
+    // 5. 安全係數
+    const SF = allowable_F / sigma_F;
+    const SH = allowable_H / sigma_H;
+
+    // 更新儀表板
+    updateCard('bending', SF);
+    updateCard('contact', SH);
+
+    // 渲染顏色圖
+    drawStressContour(sigma_F / allowable_F, sigma_H / allowable_H, m, z);
+
+    // 【新功能】動態將公式與數據渲染至前端面板
+    renderFormulaLogs(m, z, d, T, ft, b, Y_F, Kv, sigma_F, allowable_F, SF, ZE, ZH, sigma_H, allowable_H, SH);
+}
+
+function updateCard(type, val) {
+    const card = document.getElementById(`card-${type}`);
+    const valueEl = document.getElementById(`val-${type}`);
+    const statusEl = document.getElementById(`status-${type}`);
+
+    valueEl.innerText = val > 99 ? "99+" : val.toFixed(2);
+    card.className = "metric-card";
+
+    if (val >= 1.2) {
+        card.classList.add('safe');
+        statusEl.innerHTML = "狀態：符合 AGMA 安全標準";
+    } else if (val >= 1.0) {
+        card.classList.add('warning');
+        statusEl.innerHTML = "狀態：臨界邊緣 (建議優化)";
+    } else {
+        card.classList.add('danger');
+        statusEl.innerHTML = "狀態：強度超載 (結構斷裂風險)";
+    }
+}
+
+function renderFormulaLogs(m, z, d, T, ft, b, Y_F, Kv, sigma_F, allowable_F, SF, ZE, ZH, sigma_H, allowable_H, SH) {
+    // 1. 幾何
+    document.getElementById('log-geometry').innerHTML = 
+        `分度圓直徑: d = m × z = ${m} × ${z} = <b>${d.toFixed(2)} mm</b>\n` +
+        `圓周切向力: Ft = (2000 × T) / d = (2000 × ${T}) / ${d.toFixed(2)} = <b>${ft.toFixed(2)} N</b>`;
+
+    // 2. 彎曲強度
+    document.getElementById('log-bending').innerHTML = 
+        `工作彎曲應力 σ_F = (Ft / (b × m)) × (1 / Y_F) × Kv\n` +
+        `                = (${ft.toFixed(1)} / (${b} × ${m})) × (1 / ${Y_F.toFixed(3)}) × ${Kv}\n` +
+        `                = <b>${sigma_F.toFixed(2)} MPa</b>\n` +
+        `材料許用應力 σ_FP = <b>${allowable_F.toFixed(2)} MPa</b>\n` +
+        `安全係數計算 S_F = σ_FP / σ_F = ${allowable_F.toFixed(2)} / ${sigma_F.toFixed(2)} = <span class="math-symbol">${SF.toFixed(3)}</span>`;
+
+    // 3. 接觸強度
+    document.getElementById('log-contact').innerHTML = 
+        `工作接觸應力 σ_H = ZE × √[ (Ft / (b × d)) × ZH × Kv ]\n` +
+        `                = ${ZE} × √[ (${ft.toFixed(1)} / (${b} × ${d.toFixed(1)})) × ${ZH} × ${Kv} ]\n` +
+        `                = <b>${sigma_H.toFixed(2)} MPa</b>\n` +
+        `材料許用應力 σ_HP = <b>${allowable_H.toFixed(2)} MPa</b>\n` +
+        `安全係數計算 S_H = σ_HP / σ_H = ${allowable_H.toFixed(2)} / ${sigma_H.toFixed(2)} = <span class="math-symbol">${SH.toFixed(3)}</span>`;
+}
+
+// Canvas 繪圖核心
+function drawStressContour(bendLoadFactor, contactLoadFactor, m, z) {
+    const canvas = document.getElementById('stressCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    ctx.fillStyle = '#2c3e50';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2 + 25;
+
+    function getStressColor(intensity) {
+        intensity = Math.max(0, Math.min(1.1, intensity));
+        const hue = 240 - (intensity * 240);
+        return `hsl(${hue}, 100%, 50%)`;
+    }
+
+    ctx.strokeStyle = '#34495e';
+    ctx.lineWidth = 0.5;
+    for(let i=0; i<canvas.width; i+=30) {
+        ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+    }
+    for(let j=0; j<canvas.height; j+=30) {
+        ctx.beginPath(); ctx.moveTo(0, j); ctx.lineTo(canvas.width, j); ctx.stroke();
+    }
+
+    ctx.fillStyle = '#ffffff';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.fillText('AGMA 輪齒局部應力場分布模擬 (FEA)', 15, 22);
+
+    const toothHeight = 150; 
+    const meshRows = 45;
+    const meshCols = 35;
+
+    for (let r = 0; r < meshRows; r++) {
+        const rowRatio = r / (meshRows - 1); 
+        const yPos = cy + (toothHeight / 2) - (rowRatio * toothHeight);
+        let baseWidth = 130 * (1 - rowRatio * 0.45);
+
+        if (rowRatio < 0.15) {
+            const rootTransition = rowRatio / 0.15;
+            baseWidth *= (0.75 + rootTransition * 0.25);
+        }
+
+        for (let c = 0; c < meshCols; c++) {
+            const colRatio = c / (meshCols - 1); 
+            const xOffset = (colRatio - 0.5) * baseWidth;
+            const xPos = cx + xOffset;
+
+            let localStress = 0.04; 
+
+            if (rowRatio <= 0.25) {
+                const distToEdge = Math.min(colRatio, 1.0 - colRatio); 
+                if (distToEdge < 0.25) {
+                    const edgeFactor = (1.0 - (distToEdge / 0.25));
+                    const rowFactor = (1.0 - (rowRatio / 0.25));
+                    localStress += bendLoadFactor * edgeFactor * rowFactor * 0.95;
+                }
+            }
+
+            const contactTargetRow = 0.55;
+            const dy = Math.abs(rowRatio - contactTargetRow);
+            const dxFromRight = 1.0 - colRatio; 
+
+            if (dy < 0.15 && dxFromRight < 0.2) {
+                const hertzYFactor = 1.0 - (dy / 0.15);
+                const hertzXFactor = 1.0 - (dxFromRight / 0.2);
+                localStress += contactLoadFactor * hertzYFactor * hertzXFactor * 1.1;
+            }
+
+            ctx.fillStyle = getStressColor(localStress);
+            const cellW = baseWidth / meshCols + 0.5;
+            const cellH = toothHeight / meshRows + 0.5;
+            ctx.fillRect(xPos, yPos, cellW, cellH);
+        }
+    }
+
+    // 作用力箭頭
+    const arrowY = cy + (toothHeight / 2) - (0.55 * toothHeight); 
+    const arrowEndX = cx + (130 * (1 - 0.55 * 0.45)) / 2;
+    const arrowStartX = arrowEndX + 50;
+
+    ctx.strokeStyle = '#e74c3c';
+    ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.moveTo(arrowStartX, arrowY); ctx.lineTo(arrowEndX, arrowY); ctx.stroke();
+
+    ctx.fillStyle = '#e74c3c';
+    ctx.beginPath();
+    ctx.moveTo(arrowEndX, arrowY); ctx.lineTo(arrowEndX + 10, arrowY - 5); ctx.lineTo(arrowEndX + 10, arrowY + 5);
+    ctx.fill();
+
+    ctx.fillStyle = '#ff7675';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.fillText('Ft', arrowStartX - 20, arrowY - 6);
+}
+
+window.onload = function() {
+    handleUIFeedback();
+    runAnalysis();
+};
+</script>
+
+</body>
+</html>

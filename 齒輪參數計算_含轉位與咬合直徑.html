@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>斜齒輪參數計算 (含轉位 + 咬合直徑)</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: "Microsoft JhengHei", "Segoe UI", Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            margin: 0; padding: 20px; min-height: 100vh;
+        }
+        .container {
+            background-color: #fff;
+            padding: 30px; border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%; max-width: 1000px; margin: 0 auto;
+        }
+        h2 { text-align: center; color: #2c3e50; margin-bottom: 25px; }
+        
+        .main-layout { display: flex; flex-wrap: wrap; gap: 25px; }
+        .input-panel { flex: 1; min-width: 290px; }
+        .result-panel { flex: 2; min-width: 340px; display: none; }
+
+        .form-group { margin-bottom: 12px; }
+        label { display: block; margin-bottom: 4px; color: #495057; font-weight: 600; font-size: 14px; }
+        input {
+            width: 100%; padding: 9px; border: 2px solid #e0e0e0;
+            border-radius: 6px; font-size: 15px; transition: 0.2s;
+        }
+        input:focus { border-color: #667eea; outline: none; }
+        
+        .gear-type-selector { display: flex; gap: 18px; margin-top: 5px; background: #f8f9fa; padding: 10px; border-radius: 6px; }
+        .gear-type-selector label { margin-bottom: 0; cursor: pointer; display: flex; align-items: center; gap: 5px; }
+
+        .section-title {
+            font-size: 13px; font-weight: bold; color: #667eea;
+            margin: 18px 0 8px; padding-bottom: 4px;
+            border-bottom: 1px dashed #667eea;
+        }
+
+        .btn {
+            width: 100%; padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white; border: none; border-radius: 6px;
+            font-size: 17px; font-weight: bold; cursor: pointer;
+            transition: 0.2s; margin-top: 12px;
+        }
+        .btn:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        .result-card {
+            background: #fff; border: 1px solid #e9ecef;
+            border-radius: 8px; padding: 18px; margin-bottom: 18px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+        }
+        .result-title {
+            font-size: 15px; font-weight: bold; color: #2c3e50;
+            border-bottom: 2px solid #667eea; padding-bottom: 7px; margin-bottom: 14px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+        
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+        .result-row { display: flex; flex-direction: column; }
+        .label-sm { font-size: 12px; color: #666; margin-bottom: 2px; }
+        .val-lg { font-size: 17px; font-weight: bold; color: #2c3e50; }
+        .highlight { color: #667eea; }
+        .highlight-green { color: #28a745; }
+        .warning-text { color: #dc3545; font-weight: bold; }
+
+        .formula-hint {
+            font-size: 11px; color: #888; background: #f8f9fa;
+            padding: 3px 5px; border-radius: 4px; font-family: monospace; margin-top: 2px;
+        }
+
+        .vis-container {
+            text-align: center; margin-top: 12px; padding: 10px;
+            background: #fdfdfd; border: 1px dashed #ddd; border-radius: 8px;
+        }
+        svg { max-width: 100%; height: auto; background: transparent; }
+        
+        .gear-path { fill: #eef2f7; stroke: #333; stroke-width: 1; }
+        .pcd-circle { fill: none; stroke: #dc3545; stroke-dasharray: 4,3; stroke-width: 1; opacity: 0.7; }
+        .base-circle { fill: none; stroke: #28a745; stroke-dasharray: 2,2; stroke-width: 1; opacity: 0.5; }
+        .pin-circle { fill: rgba(220, 53, 69, 0.2); stroke: #dc3545; stroke-width: 1.5; }
+        .dim-line { stroke: #28a745; stroke-width: 2; marker-end: url(#arrow); marker-start: url(#arrow); }
+        .center-mark { fill: #333; }
+
+        .status-badge { padding: 3px 10px; border-radius: 12px; font-size: 12px; color: white; }
+        .bg-ok { background-color: #28a745; }
+        .bg-err { background-color: #dc3545; }
+
+        .warning-box { margin-top: 10px; padding: 10px; background: #fff3cd; color: #856404; border-radius: 5px; font-size: 13px; display: none; }
+        .info-box {
+            margin-top: 10px; padding: 11px; background: #e8f4fd; color: #0c5460;
+            border-radius: 6px; font-size: 13px; border-left: 4px solid #17a2b8;
+        }
+        .cad-box {
+            margin-top: 10px; padding: 12px; background: #f0fff4; color: #155724;
+            border-radius: 6px; font-size: 13px; border-left: 4px solid #28a745;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>⚙️ 斜齒輪參數計算<br><small style="font-size:14px;color:#666;">(含轉位係數 + CAD 咬合直徑)</small></h2>
+    
+    <div class="main-layout">
+        <!-- 輸入區 -->
+        <div class="input-panel">
+            <div class="section-title">本齒輪參數</div>
+            <div class="form-group">
+                <label>法向模數 (Mn)</label>
+                <input type="number" id="module" step="0.001" value="2" placeholder="mm">
+            </div>
+            <div class="form-group">
+                <label>齒數 (Z₁)</label>
+                <input type="number" id="teeth" step="1" value="18">
+            </div>
+            <div class="form-group">
+                <label>螺旋角 (β) 度</label>
+                <input type="number" id="helixAngle" step="0.0001" value="15">
+            </div>
+            <div class="form-group">
+                <label>法向壓力角 (αn) 度</label>
+                <input type="number" id="pressureAngle" value="20" step="0.01">
+            </div>
+            <div class="form-group">
+                <label>轉位係數 (x₁)</label>
+                <input type="number" id="shiftCoeff" value="0" step="0.001">
+                <div class="formula-hint">正轉位 x &gt; 0，負轉位 x &lt; 0</div>
+            </div>
+            <div class="form-group">
+                <label>量銷直徑 (dp) mm</label>
+                <input type="number" id="pinDia" step="0.0001" placeholder="留空自動計算">
+            </div>
+            <div class="form-group">
+                <label>齒輪類型</label>
+                <div class="gear-type-selector">
+                    <label><input type="radio" name="gearType" value="external" checked> 外齒輪</label>
+                    <label><input type="radio" name="gearType" value="internal"> 內齒輪</label>
+                </div>
+            </div>
+
+            <div class="section-title">配對齒輪（CAD 咬合用，可選）</div>
+            <div class="form-group">
+                <label>配對齒數 (Z₂)</label>
+                <input type="number" id="teeth2" step="1" value="36" placeholder="留空則不計算咬合">
+            </div>
+            <div class="form-group">
+                <label>配對轉位係數 (x₂)</label>
+                <input type="number" id="shiftCoeff2" value="0" step="0.001">
+            </div>
+
+            <button class="btn" onclick="calculate()">計算並繪製</button>
+            <div id="helixWarning" class="warning-box"></div>
+        </div>
+
+        <!-- 結果區 -->
+        <div class="result-panel" id="resultPanel">
+            
+            <!-- 1. 幾何與齒形 -->
+            <div class="result-card">
+                <div class="result-title">1. 本齒輪幾何尺寸</div>
+                <div class="data-grid">
+                    <div class="result-row">
+                        <span class="label-sm">節圓直徑 (d₁) 參考</span>
+                        <span class="val-lg" id="resPCD"></span>
+                        <div class="formula-hint">d = Z·Mn / cos(β)　(不受 x 影響)</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">基圓直徑 (db)</span>
+                        <span class="val-lg" id="resDb"></span>
+                        <div class="formula-hint">db = d·cos(αt)</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">齒頂圓 (da)</span>
+                        <span class="val-lg highlight" id="resOD"></span>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">齒根圓 (df)</span>
+                        <span class="val-lg" id="resDf"></span>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">齒冠高 (ha)</span>
+                        <span class="val-lg" id="resHa"></span>
+                        <div class="formula-hint">|da - d| / 2</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">齒全高 (h)</span>
+                        <span class="val-lg" id="resH"></span>
+                        <div class="formula-hint">|da - df| / 2</div>
+                    </div>
+                </div>
+                
+                <div class="vis-container">
+                    <svg id="gearSvg" viewBox="0 0 300 300">
+                        <defs>
+                            <marker id="arrow" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto">
+                                <path d="M0,0 L0,6 L6,3 z" fill="#28a745" />
+                            </marker>
+                        </defs>
+                    </svg>
+                    <div style="font-size:12px; color:#666; margin-top:5px;">
+                        紅虛線: 節圓 / 綠虛線: 基圓
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. 轉位係數 -->
+            <div class="result-card">
+                <div class="result-title">2. 轉位係數分析</div>
+                <div class="data-grid">
+                    <div class="result-row">
+                        <span class="label-sm">轉位係數 (x₁)</span>
+                        <span class="val-lg highlight" id="resX"></span>
+                        <div class="formula-hint">刀具偏移 = x · Mn</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">分度圓齒厚 (s)</span>
+                        <span class="val-lg" id="resS"></span>
+                        <div class="formula-hint">s = Mn·(π/2 + 2x·tan(αn))</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">當量齒數 (zv)</span>
+                        <span class="val-lg" id="resZv"></span>
+                        <div class="formula-hint">zv = Z / cos³(β)</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">最小轉位係數 (xmin)</span>
+                        <span class="val-lg" id="resXmin"></span>
+                        <div class="formula-hint">xmin = 1 − zv·sin²(αn)/2</div>
+                    </div>
+                </div>
+                <div id="shiftStatus" class="info-box"></div>
+            </div>
+
+            <!-- 3. CAD 咬合直徑 (新增重點) -->
+            <div class="result-card" id="meshCard" style="display:none;">
+                <div class="result-title">3. CAD 咬合直徑與中心距 ★</div>
+                <div class="data-grid">
+                    <div class="result-row">
+                        <span class="label-sm">標準中心距 (a₀)</span>
+                        <span class="val-lg" id="resA0"></span>
+                        <div class="formula-hint">a₀ = (d₁ + d₂)/2</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">實際中心距 (a)</span>
+                        <span class="val-lg highlight-green" id="resA"></span>
+                        <div class="formula-hint">a = a₀ · cos(αt)/cos(αw)</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">工作節圓直徑 dw₁ (咬合)</span>
+                        <span class="val-lg highlight-green" id="resDw1"></span>
+                        <div class="formula-hint">dw₁ = 2a · Z₁/(Z₁+Z₂)</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">工作節圓直徑 dw₂ (咬合)</span>
+                        <span class="val-lg highlight-green" id="resDw2"></span>
+                        <div class="formula-hint">dw₂ = 2a · Z₂/(Z₁+Z₂)</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">工作壓力角 αw</span>
+                        <span class="val-lg" id="resAw"></span>
+                        <div class="formula-hint">由 inv(αw) 反算</div>
+                    </div>
+                    <div class="result-row">
+                        <span class="label-sm">總轉位係數 Σx</span>
+                        <span class="val-lg" id="resSumX"></span>
+                        <div class="formula-hint">x₁ + x₂</div>
+                    </div>
+                </div>
+                <div class="cad-box">
+                    <strong>CAD 繪圖建議：</strong><br>
+                    • 兩個齒輪的<strong>咬合直徑</strong>請使用 <strong>dw₁</strong> 與 <strong>dw₂</strong>（而非參考節圓 d）<br>
+                    • 中心距請使用實際中心距 <strong>a</strong><br>
+                    • 參考節圓 d 仍用於定義基圓與漸開線
+                </div>
+            </div>
+
+            <!-- 4. 測量數據 -->
+            <div class="result-card">
+                <div class="result-title">4. 測量數據 (跨齒厚 & 跨銷法)</div>
+                
+                <div style="background:#f0f8ff; padding:10px; border-radius:5px; margin-bottom:12px;">
+                    <strong style="color:#0056b3;">跨銷法 (Over Pin)</strong>
+                    <div class="data-grid" style="margin-top:5px;">
+                        <div class="result-row">
+                            <span class="label-sm">量銷直徑 (dp)</span>
+                            <span class="val-lg" id="resPinDia"></span>
+                        </div>
+                        <div class="result-row">
+                            <span class="label-sm">跨銷尺寸 (M)</span>
+                            <span class="val-lg highlight" id="resM"></span>
+                        </div>
+                    </div>
+                    <div class="formula-hint" id="pinNote"></div>
+                </div>
+
+                <div style="background:#fff5f5; padding:10px; border-radius:5px;">
+                    <strong style="color:#b30000;">跨齒厚 (Span)</strong> <span id="spanStatus"></span>
+                    <div class="data-grid" style="margin-top:5px;">
+                        <div class="result-row">
+                            <span class="label-sm">跨測齒數 (k)</span>
+                            <span class="val-lg" id="resK"></span>
+                        </div>
+                        <div class="result-row">
+                            <span class="label-sm">跨齒厚度 (W)</span>
+                            <span class="val-lg highlight" id="resW"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vis-container">
+                    <svg id="pinSvg" viewBox="0 0 300 300"></svg>
+                    <div style="font-size:12px; color:#666; margin-top:5px;">
+                        實線顯示量銷在齒槽中的位置
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script>
+    const PI = Math.PI;
+    const inv = (a) => Math.tan(a) - a;
+    const fmt = (n) => n.toFixed(3);
+    const fmt4 = (n) => n.toFixed(4);
+
+    function invInvolute(invAlpha) {
+        if (invAlpha < 0) return 0;
+        let a = Math.pow(3 * invAlpha, 1/3);
+        for(let i=0; i<50; i++) {
+            let diff = inv(a) - invAlpha;
+            if(Math.abs(diff) < 1e-9) break;
+            a = a - diff / Math.pow(Math.tan(a), 2);
+        }
+        return a;
+    }
+
+    function calculate() {
+        // 1. 讀取本齒輪
+        const mn = parseFloat(document.getElementById('module').value);
+        const z1 = parseInt(document.getElementById('teeth').value);
+        const betaDeg = parseFloat(document.getElementById('helixAngle').value);
+        const alphaDeg = parseFloat(document.getElementById('pressureAngle').value);
+        const x1 = parseFloat(document.getElementById('shiftCoeff').value);
+        let dp = parseFloat(document.getElementById('pinDia').value);
+        const isExt = document.querySelector('input[name="gearType"]:checked').value === 'external';
+
+        // 配對齒輪
+        const z2Input = document.getElementById('teeth2').value;
+        const z2 = z2Input ? parseInt(z2Input) : NaN;
+        const x2 = parseFloat(document.getElementById('shiftCoeff2').value) || 0;
+
+        if([mn, z1, betaDeg, alphaDeg, x1].some(isNaN)) return alert("請輸入完整本齒輪參數");
+
+        // 2. 幾何計算
+        const beta = betaDeg * PI/180;
+        const alpha_n = alphaDeg * PI/180;
+        const mt = mn / Math.cos(beta);
+        const alpha_t = Math.atan(Math.tan(alpha_n)/Math.cos(beta));
+        
+        const d1 = z1 * mt;
+        const db = d1 * Math.cos(alpha_t);
+        
+        const ha_star = 1.0;
+        const c_star = 0.25;
+
+        let da, df, ha, h;
+
+        if(isExt) {
+            da = d1 + 2*mn*(ha_star + x1);
+            df = d1 - 2*mn*(ha_star + c_star - x1);
+            ha = (da - d1) / 2;
+            h = (da - df) / 2;
+        } else {
+            da = d1 - 2*mn*(ha_star - x1);
+            df = d1 + 2*mn*(ha_star + c_star + x1);
+            ha = Math.abs(d1 - da) / 2;
+            h = Math.abs(df - da) / 2;
+        }
+
+        // 轉位相關
+        const s = mn * (PI/2 + 2 * x1 * Math.tan(alpha_n));
+        const cosBeta = Math.cos(beta);
+        const zv = z1 / Math.pow(cosBeta, 3);
+        const sinAn = Math.sin(alpha_n);
+        const xmin = 1 - (zv * sinAn * sinAn) / 2;
+
+        // 跨齒厚
+        const k = Math.max(1, Math.round(z1*alpha_t/PI + 0.5));
+        const W = mn*Math.cos(alpha_n)*(PI*(k-0.5) + z1*inv(alpha_t)) + 2*x1*mn*Math.sin(alpha_n);
+
+        // 跨銷
+        if(isNaN(dp)) dp = 1.728 * mn;
+        const inv_an = inv(alpha_n);
+        let inv_aM, M;
+        
+        if(isExt) {
+            inv_aM = dp/(mn*z1*Math.cos(alpha_n)) + inv_an + (2*x1*Math.tan(alpha_n))/z1 - PI/(2*z1);
+        } else {
+            inv_aM = -dp/(mn*z1*Math.cos(alpha_n)) + inv_an + (2*x1*Math.tan(alpha_n))/z1 + PI/(2*z1);
+        }
+        
+        const aM = invInvolute(Math.abs(inv_aM));
+        const dM = (mn*z1*Math.cos(alpha_n)) / (Math.cos(aM)*Math.cos(beta));
+        const isEven = (z1 % 2 === 0);
+        if(isExt) {
+            M = isEven ? dM + dp : dM * Math.cos(PI/(2*z1)) + dp;
+        } else {
+            M = isEven ? dM - dp : dM * Math.cos(PI/(2*z1)) - dp;
+        }
+
+        // ===== CAD 咬合參數計算 =====
+        let hasMesh = !isNaN(z2) && z2 > 0;
+        let a0, a, dw1, dw2, alpha_w, sumX;
+
+        if (hasMesh) {
+            const d2 = z2 * mt;                    // 配對齒輪參考節圓
+            a0 = (d1 + d2) / 2;                    // 標準中心距
+
+            sumX = x1 + x2;
+            // inv(αw) = inv(αt) + 2·tan(αn)·Σx / (z1+z2)
+            const inv_aw = inv(alpha_t) + 2 * Math.tan(alpha_n) * sumX / (z1 + z2);
+            alpha_w = invInvolute(inv_aw);
+
+            // 實際中心距
+            a = a0 * Math.cos(alpha_t) / Math.cos(alpha_w);
+
+            // 工作節圓（咬合直徑）
+            dw1 = 2 * a * z1 / (z1 + z2);
+            dw2 = 2 * a * z2 / (z1 + z2);
+        }
+
+        // 5. 填寫結果
+        document.getElementById('resPCD').innerText = fmt(d1);
+        document.getElementById('resOD').innerText = fmt(da);
+        document.getElementById('resDf').innerText = fmt(df);
+        document.getElementById('resDb').innerText = fmt(db);
+        document.getElementById('resHa').innerText = fmt(ha);
+        document.getElementById('resH').innerText = fmt(h);
+
+        document.getElementById('resX').innerText = fmt4(x1);
+        document.getElementById('resS').innerText = fmt(s);
+        document.getElementById('resZv').innerText = fmt(zv);
+        document.getElementById('resXmin').innerText = fmt4(xmin);
+
+        // 轉位狀態
+        const shiftStatus = document.getElementById('shiftStatus');
+        if (isExt) {
+            if (x1 < xmin) {
+                shiftStatus.innerHTML = `<span class="warning-text">⚠️ 警告：x₁ = ${fmt4(x1)} &lt; xmin = ${fmt4(xmin)}，可能根切。建議 x₁ ≥ ${fmt4(xmin)}</span>`;
+            } else if (x1 === 0) {
+                shiftStatus.innerHTML = `✅ 標準齒輪 (x=0)。理論不根切條件 x ≥ ${fmt4(xmin)}`;
+            } else if (x1 > 0) {
+                shiftStatus.innerHTML = `✅ 正轉位。x₁ 大於最小建議值 ${fmt4(xmin)}，有利避免根切`;
+            } else {
+                shiftStatus.innerHTML = `ℹ️ 負轉位。需注意齒厚變薄與根切風險`;
+            }
+        } else {
+            shiftStatus.innerHTML = `內齒輪。目前 x₁ = ${fmt4(x1)}`;
+        }
+
+        // 咬合結果
+        const meshCard = document.getElementById('meshCard');
+        if (hasMesh) {
+            meshCard.style.display = 'block';
+            document.getElementById('resA0').innerText = fmt(a0);
+            document.getElementById('resA').innerText = fmt(a);
+            document.getElementById('resDw1').innerText = fmt(dw1);
+            document.getElementById('resDw2').innerText = fmt(dw2);
+            document.getElementById('resAw').innerText = (alpha_w * 180 / PI).toFixed(4) + '°';
+            document.getElementById('resSumX').innerText = fmt4(sumX);
+        } else {
+            meshCard.style.display = 'none';
+        }
+
+        document.getElementById('resK').innerText = k;
+        document.getElementById('resW').innerText = fmt(W);
+        document.getElementById('resPinDia').innerText = fmt(dp);
+        document.getElementById('resM').innerText = fmt(M);
+        document.getElementById('pinNote').innerText = `${isEven ? '偶數齒' : '奇數齒'}, dM=${fmt(dM)}`;
+
+        // 螺旋角警告
+        const warnBox = document.getElementById('helixWarning');
+        const spanStatus = document.getElementById('spanStatus');
+        if(betaDeg > 40) {
+            warnBox.style.display = 'block';
+            warnBox.innerText = "⚠️ 螺旋角 > 40°，跨齒厚無法測量，請使用跨銷法。";
+            spanStatus.innerHTML = "<span class='status-badge bg-err'>不建議</span>";
+        } else {
+            warnBox.style.display = 'none';
+            spanStatus.innerHTML = "<span class='status-badge bg-ok'>可行</span>";
+        }
+
+        document.getElementById('resultPanel').style.display = "block";
+
+        // 繪圖
+        drawGearSystem(z1, da, df, d1, db, dp, M, isExt, isEven, 'gearSvg', false); 
+        drawGearSystem(z1, da, df, d1, db, dp, M, isExt, isEven, 'pinSvg', true);  
+    }
+
+    function drawGearSystem(z, da, df, d, db, dp, M, isExt, isEven, svgId, showPins) {
+        const svg = document.getElementById(svgId);
+        svg.innerHTML = ''; 
+        const cx = 150, cy = 150;
+        const maxDim = isExt ? Math.max(da, showPins ? M : da) : df; 
+        const scale = 130 / (maxDim / 2);
+
+        const gearPathD = generateGearPath(cx, cy, z, da/2*scale, df/2*scale, isExt);
+        const pathEl = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        pathEl.setAttribute("d", gearPathD);
+        pathEl.setAttribute("class", "gear-path");
+        
+        if (!isExt) {
+            const rOut = (df/2 * scale) + 20;
+            const outerCircle = ` M ${cx-rOut},${cy} a ${rOut},${rOut} 0 1,0 ${rOut*2},0 a ${rOut},${rOut} 0 1,0 -${rOut*2},0`;
+            pathEl.setAttribute("d", gearPathD + outerCircle);
+            pathEl.setAttribute("fill-rule", "evenodd");
+        }
+        svg.appendChild(pathEl);
+
+        drawCircle(svg, cx, cy, d/2*scale, "pcd-circle");
+        drawCircle(svg, cx, cy, db/2*scale, "base-circle");
+        
+        const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        center.setAttribute("cx", cx); center.setAttribute("cy", cy);
+        center.setAttribute("r", 2); center.setAttribute("class", "center-mark");
+        svg.appendChild(center);
+
+        if (showPins) {
+            drawPinsAndDim(svg, cx, cy, z, dp, M, scale, isExt, isEven);
+        }
+    }
+
+    function generateGearPath(cx, cy, z, rTip, rRoot, isExt) {
+        let d = "";
+        const step = (Math.PI * 2) / z;
+        const startAngle = -Math.PI/2 - step/2;
+        const toothAngle = step / 2; 
+        const rBase = rRoot; 
+        const rTop = rTip;
+        const spanRoot = toothAngle * 1.2; 
+        const spanTip = toothAngle * 0.6; 
+
+        for (let i = 0; i < z; i++) {
+            const theta = startAngle + i * step;
+            const a1 = theta - spanRoot/2;
+            const a2 = theta - spanTip/2;
+            const a3 = theta + spanTip/2;
+            const a4 = theta + spanRoot/2;
+            const p1 = polar(cx, cy, rBase, a1);
+            const p2 = polar(cx, cy, rTop, a2);
+            const p3 = polar(cx, cy, rTop, a3);
+            const p4 = polar(cx, cy, rBase, a4);
+
+            if (i === 0) d += `M ${p1.x},${p1.y} `;
+            else d += `A ${rBase},${rBase} 0 0,${isExt?1:0} ${p1.x},${p1.y} `;
+            d += `L ${p2.x},${p2.y} `;
+            d += `A ${rTop},${rTop} 0 0,${isExt?1:0} ${p3.x},${p3.y} `;
+            d += `L ${p4.x},${p4.y} `;
+        }
+        const theta0 = startAngle;
+        const p1_0 = polar(cx, cy, rBase, theta0 - spanRoot/2);
+        d += `A ${rBase},${rBase} 0 0,${isExt?1:0} ${p1_0.x},${p1_0.y} Z`;
+        return d;
+    }
+
+    function drawPinsAndDim(svg, cx, cy, z, dp, M, scale, isExt, isEven) {
+        const rPin = dp/2 * scale;
+        const dist = isExt ? (M - dp)/2 : (M + dp)/2;
+        const rCenter = dist * scale;
+        const p1 = polar(cx, cy, rCenter, -PI/2);
+        const angle2 = -PI/2 + PI + (isEven ? 0 : PI/z);
+        const p2 = polar(cx, cy, rCenter, angle2);
+
+        const createPin = (x, y) => {
+            const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            c.setAttribute("cx", x); c.setAttribute("cy", y);
+            c.setAttribute("r", rPin); c.setAttribute("class", "pin-circle");
+            return c;
+        };
+        svg.appendChild(createPin(p1.x, p1.y));
+        svg.appendChild(createPin(p2.x, p2.y));
+
+        if (isExt) {
+            const dimX = cx + rCenter + rPin + 20;
+            const topY = p1.y - rPin;
+            const botY = cy + rCenter + rPin; 
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", dimX); line.setAttribute("y1", topY);
+            line.setAttribute("x2", dimX); line.setAttribute("y2", botY);
+            line.setAttribute("class", "dim-line");
+            const l1 = line.cloneNode(); l1.setAttribute("x1", cx); l1.setAttribute("x2", dimX+5); l1.setAttribute("y1", topY); l1.setAttribute("y2", topY); l1.setAttribute("stroke", "#ccc"); l1.removeAttribute("class");
+            const l2 = line.cloneNode(); l2.setAttribute("x1", cx); l2.setAttribute("x2", dimX+5); l2.setAttribute("y1", botY); l2.setAttribute("y2", botY); l2.setAttribute("stroke", "#ccc"); l2.removeAttribute("class");
+            svg.appendChild(l1); svg.appendChild(l2); svg.appendChild(line);
+            const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            txt.setAttribute("x", dimX + 10); txt.setAttribute("y", cy);
+            txt.setAttribute("fill", "#28a745"); txt.setAttribute("font-weight", "bold");
+            txt.textContent = "M";
+            svg.appendChild(txt);
+        } else {
+            const topY = p1.y + rPin;
+            const botY = cy + rCenter - rPin;
+            const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+            line.setAttribute("x1", cx); line.setAttribute("y1", topY);
+            line.setAttribute("x2", cx); line.setAttribute("y2", botY);
+            line.setAttribute("class", "dim-line");
+            svg.appendChild(line);
+            const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+            txt.setAttribute("x", cx + 10); txt.setAttribute("y", cy);
+            txt.setAttribute("fill", "#28a745"); txt.setAttribute("font-weight", "bold");
+            txt.textContent = "M";
+            svg.appendChild(txt);
+        }
+    }
+
+    function drawCircle(svg, cx, cy, r, cls) {
+        const c = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        c.setAttribute("cx", cx); c.setAttribute("cy", cy);
+        c.setAttribute("r", r); c.setAttribute("class", cls);
+        svg.appendChild(c);
+    }
+
+    function polar(cx, cy, r, angle) {
+        return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+    }
+</script>
+
+</body>
+</html>

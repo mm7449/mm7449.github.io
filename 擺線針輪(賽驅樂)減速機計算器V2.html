@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="zh-Hant"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>擺線針輪(賽驅樂)減速機計算器 V2</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mut:#667085;--bd:#d9dde5;--ac:#2563eb;--ok:#16a34a;--bad:#dc2626;--pin:#d97706;--disc:#2563eb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151c;--card:#1b1f2a;--tx:#e8eaf0;--mut:#98a2b3;--bd:#323848;--ac:#60a5fa;--ok:#4ade80;--bad:#f87171;--pin:#fbbf24;--disc:#60a5fa}}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,"Noto Sans TC",sans-serif;padding:16px}
+h1{font-size:20px;margin:0 0 12px}h2{font-size:15px;margin:0 0 8px}
+.wrap{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:14px;max-width:1100px;margin:auto}
+@media(max-width:800px){.wrap{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:10px;padding:14px;margin-bottom:14px}
+label{display:flex;justify-content:space-between;gap:8px;margin:8px 0 2px;font-size:13px;color:var(--mut)}
+input[type=number]{width:100%;padding:7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font-size:15px}
+input[type=range]{width:100%}
+button{padding:7px 12px;border:1px solid var(--bd);border-radius:6px;background:var(--ac);color:#fff;cursor:pointer;font-size:14px;margin:6px 6px 0 0}
+button.g{background:var(--bg);color:var(--tx)}
+table{width:100%;border-collapse:collapse;font-size:14px}td{padding:4px 2px;border-bottom:1px solid var(--bd)}td:last-child{text-align:right;font-variant-numeric:tabular-nums}
+.badge{display:block;padding:8px 10px;border-radius:6px;margin:6px 0;font-size:14px;font-weight:600}
+.ok{background:color-mix(in srgb,var(--ok) 18%,transparent);color:var(--ok)}.bad{background:color-mix(in srgb,var(--bad) 18%,transparent);color:var(--bad)}.warn{background:color-mix(in srgb,var(--pin) 20%,transparent);color:var(--pin)}
+canvas{width:100%;aspect-ratio:1;max-height:640px;display:block;border-radius:8px;background:var(--bg)}
+.fx{overflow-x:auto;font-family:ui-monospace,monospace;font-size:12.5px;color:var(--mut);white-space:pre}
+.lg{font-size:12px;color:var(--mut);margin-top:6px}
+table.guide td,table.guide td:last-child{text-align:left;font-variant-numeric:normal;vertical-align:top}
+table.guide td:first-child:not([colspan]){white-space:nowrap;width:7.2em;color:var(--mut)}
+</style></head><body>
+<h1>擺線針輪(賽驅樂)減速機 計算器 V2</h1>
+<div class="wrap">
+<div>
+ <div class="card"><h2>輸入條件</h2>
+  <label>計算模式</label><select id="mode" style="width:100%;padding:7px;border:1px solid var(--bd);border-radius:6px;background:var(--bg);color:var(--tx);font-size:15px"><option value="fwd">正算:由軸承外徑配置滾柱</option><option value="rev">反推:已知滾柱 → 擺線盤與偏心量</option></select>
+  <label>減速比 i(整數 ≥ 5)</label><input type="number" id="ratio" value="11" min="5" step="1">
+  <label>軸承最大外徑 D<sub>b</sub> (mm)</label><input type="number" id="dmax" value="100" min="20" step="1">
+  <div id="revbox" style="display:none"><label>外滾柱中心圓直徑 2Rp (mm)</label><input type="number" id="rpcd" value="88.54" min="1" step="0.01">
+   <label>外滾柱外徑 2rp (mm)</label><input type="number" id="rpd" value="11.46" min="0.5" step="0.01">
+   <div class="lg" id="pinwarn" style="font-weight:600"></div>
+   <button id="brev">反推偏心量與擺線盤</button><div class="lg">此模式以上方「軸承最大外徑」作為上限檢查(外滾柱最大外徑 = 中心圓直徑 + 外徑);針徑比 q 不使用。</div></div>
+  <label><span>短幅係數 K1 = e·N / Rp</span><b id="k1v"></b></label><input type="range" id="k1" min="0.1" max="0.98" step="0.01" value="0.6">
+  <div class="lg" id="k1hint"></div>
+  <label><span>針徑比 q(針徑 / 針距弦長)</span><b id="qv"></b></label><input type="range" id="q" min="0.2" max="0.8" step="0.01" value="0.5">
+  <label>滾柱槽單邊間隙 c (mm)</label><input type="number" id="gc" value="0.03" min="0" step="0.01">
+  <label>殼體孔與擺線盤最小間隙 g (mm)</label><input type="number" id="gg" value="0.3" min="0" step="0.05">
+  <label>偏心量上限 e<sub>max</sub> (mm, 0=不限制)</label><input type="number" id="emax" value="0" min="0" step="0.01">
+  <input type="hidden" id="rhomin" value="1.25">
+  <label style="gap:6px;justify-content:flex-start;align-items:center"><input type="checkbox" id="strictS" checked> 嚴格避免偏尖（ρmin/rp &lt; 1.25 視為不合格）</label>
+  <label style="gap:6px;justify-content:flex-start;align-items:center"><input type="checkbox" id="mine"> 最小偏心優先（兼顧齒型平順）</label>
+  <button id="auto">自動尋找最佳解</button>
+  <div class="lg" id="automsg">最佳解 = 通過全部檢查（含偏心上限與齒型平順）；未勾「最小偏心」取餘裕最大，勾選時在平順解中取最小偏心。</div>
+  <div id="exbox" style="margin-top:10px;border-top:1px solid var(--bd);padding-top:8px"><label>擺線盤輪廓:整圈單一封閉平滑曲線(DXF 與 STEP 皆是)</label>
+   <label>圓盤厚度 (mm,供 STEP 使用)</label><input type="number" id="thk" value="10" min="1" step="1">
+   <button id="bdxf">匯出 DXF(2D)</button><button id="bstp">匯出 STEP(3D)</button>
+   <label style="margin-top:8px;gap:6px;justify-content:flex-start;align-items:center"><input type="checkbox" id="ztxt">不用 zip,改存純文字 .txt(下載後把副檔名改成 .dxf / .step)</label>
+   <div class="lg" id="exmsg">檔案以 zip 封裝,解壓後取得 .dxf / .step;需所有檢查全部通過才能匯出;擺線盤輪廓在 DXF 與 STEP 中都是單一封閉平滑曲線(STEP 為 B-spline 曲面,非小平面)。</div></div>
+ </div>
+ <div class="card" id="revcard" style="display:none"><h2>反推結果</h2><div id="rev"></div></div>
+ <div class="card"><h2>計算結果</h2><div id="chk"></div><table id="res"></table></div>
+ <div class="card"><h2>公式</h2><div class="fx">外滾柱數  N = i + 1
+擺線盤齒數  Z = N − 1 = i
+偏心距  e = K1·Rp / N
+外滾柱分佈圓半徑  Rp = (Db/2) / (1 + q·sin(π/N))
+外滾柱半徑  rp = q·Rp·sin(π/N)
+外滾柱最大外徑  Dp = 2·(Rp + rp)  ≤  Db
+擺線盤齒廓(t = 0 ~ 2π):
+ ψ = atan2( sin((1−N)t), 1/K1 − cos((1−N)t) )
+ x = Rp·cos t − rp·cos(t+ψ) − e·cos(N·t)
+ y = −Rp·sin t + rp·sin(t+ψ) + e·sin(N·t)
+理論曲線曲率半徑 ρ(凸處)≥ rp  → 無過切、滑順
+干涉:各針中心至齒廓距離 − rp ≥ 0
+運動:輸入軸轉 θ,擺線盤自轉 −θ/(N−1)
+反推:已知 Rp、rp、N=i+1 → e = K1·Rp/N,掃描 K1 找出同時滿足曲率、干涉、槽保持、偏心上限的範圍
+ 齒頂圓 Da = 2(Rp+e−rp),齒根圓 Df = 2(Rp−e−rp),齒深 = 2e
+ V2:可設 e_max 上限;可調齒型平順門檻 ρmin/rp(預設1.25)
+ 「嚴格避免偏尖」開啟時未達門檻視為不合格;「最小偏心優先」在平順解中取最小 e
+ 齒型檢測: ρmin < rp → 過切; ρmin/rp < 1.25 → 偏尖(建議降 K1 或略增 q)</div>
+ <table class="guide">
+ <tr><td colspan="2"><b>短幅係數 K1 怎麼選</b>（e = K1·Rp / N，齒深 = 2e）</td></tr>
+ <tr><td>0.45～0.60</td><td>齒淺、齒尖圓鈍、不易過切。要小偏心、平順低噪音、好加工時用。</td></tr>
+ <tr><td>0.60～0.75</td><td>齒深與尖銳度較平衡。一般減速機多落在這裡。</td></tr>
+ <tr><td>0.75～0.85</td><td>齒較深、理論承載較高，齒頂開始變尖。要較大力矩且檢查仍過關時用。</td></tr>
+ <tr><td>> 0.85</td><td>齒頂容易偏尖，ρmin 接近針半徑。通常不建議；嚴格模式會判不合格。</td></tr>
+ <tr><td colspan="2">要平順：K1 往下，或勾「最小偏心優先」（在 ρmin/rp ≥ 1.25 內取較小 K1）。要較大齒深：檢查全過再把 K1 往上，且不要超過 e_max。已有偏心上限時 K1 ≤ e_max·N / Rp。實務常用 0.55～0.75。</td></tr>
+ </table></div>
+</div>
+<div>
+ <div class="card"><canvas id="cv" width="760" height="760"></canvas>
+  <button id="play" class="g">暫停</button><label style="display:inline-flex;gap:8px;align-items:center">速度<input type="range" id="spd" min="0.1" max="3" step="0.1" value="1" style="width:140px"></label>
+  <label style="display:inline-flex;gap:8px;align-items:center">放大<input type="range" id="zm" min="1" max="10" step="0.5" value="1" style="width:110px"></label>
+  <label style="display:inline-flex;gap:8px;align-items:center">位置角<input type="range" id="za" min="0" max="360" step="1" value="90" style="width:110px"></label>
+  <div class="lg"><span style="color:var(--pin)">●</span> 外滾柱 　<span style="color:var(--ok)">●</span> 接觸中 　<span style="color:var(--bad)">●</span> 干涉 　虛線圓=軸承最大外徑 / 外滾柱最大外徑 　灰線=殼體孔與滾柱槽　<span style="color:var(--bad)">━</span> 偏心量 e　(間隙很小時用「放大」+「位置角」檢視孔壁)</div>
+  <div class="lg" id="ang"></div></div>
+</div></div>
+<script>
+const $=id=>document.getElementById(id);
+let P=null,prof=[],theta=0,playing=true;
+function calc(){
+ const i=Math.max(5,Math.round(+$('ratio').value||5)),Db=+$('dmax').value||100,K1=+$('k1').value,q=+$('q').value;
+ const REV=$('mode').value=='rev',N=i+1,s=Math.sin(Math.PI/N),Rp=REV?(+$('rpcd').value||1)/2:(Db/2)/(1+q*s),rp=REV?(+$('rpd').value||1)/2:q*Rp*s,e=K1*Rp/N,Dp=2*(Rp+rp);
+ // 齒廓
+ const M=Math.max(1440,30*N);prof=[];
+ for(let k=0;k<M;k++){const t=2*Math.PI*k/M,u=(1-N)*t,psi=Math.atan2(Math.sin(u),1/K1-Math.cos(u));
+  prof.push([Rp*Math.cos(t)-rp*Math.cos(t+psi)-e*Math.cos(N*t),-Rp*Math.sin(t)+rp*Math.sin(t+psi)+e*Math.sin(N*t)]);}
+ // 曲率(凸處最小曲率半徑)
+ let rho=Infinity;
+ for(let k=0;k<M;k++){const t=2*Math.PI*k/M,c=Math.cos(t),sn=Math.sin(t),cn=Math.cos(N*t),sN=Math.sin(N*t);
+  const x1=-Rp*sn+e*N*sN,y1=-Rp*c+e*N*cn,x2=-Rp*c+e*N*N*cn,y2=Rp*sn-e*N*N*sN;
+  const cu=(x1*y2-y1*x2)/Math.pow(x1*x1+y1*y1,1.5);if(cu<0)rho=Math.min(rho,-1/cu);}
+ P={i,N,Db,K1,q,Rp,rp,e,Dp,rho,M};
+ // 干涉掃描
+ let mn=1e9;const st=Math.max(1,Math.floor(M/720));
+ for(let n=0;n<(FAST?0:48);n++){const th=2*Math.PI*n/48;const cl=clear(th);for(const c of cl)mn=Math.min(mn,c);}
+ P.minClear=FAST?0:mn;
+ P.H=housing();P.okH=P.H.ok0&&P.H.okR&&P.H.okW;
+ const emax=+$('emax').value||0;P.emax=emax;P.okE=emax<=0||e<=emax+1e-9;
+ P.rhoRatio=rp>0?rho/rp:0;
+ const rth=Math.max(1,+$('rhomin').value||1.25);P.rth=rth;
+ const strict=$('strictS').checked;P.strictS=strict;
+ P.okD=Dp<=Db+1e-9;P.okU=rho>=rp;P.okI=mn>=-0.01*rp;
+ P.okS=!strict||P.rhoRatio>=rth-1e-9; /* 嚴格模式才把偏尖算不合格 */
+ P.ok=P.okD&&P.okU&&P.okI&&P.okH&&P.okE&&P.okS;
+ show();
+}
+function housing(){const{N,Rp,rp,e}=P,c=Math.max(0,+$('gc').value||0),g=Math.max(0,+$('gg').value||0);
+ let rm=0;for(const p of prof)rm=Math.max(rm,Math.hypot(p[0],p[1]));
+ const Rtip=rm+e,Rh=Rtip+g,rg=rp+c,x=(Rp*Rp+Rh*Rh-rg*rg)/(2*Rp),yy=Rh*Rh-x*x,H={c,g,Rtip,Rh,rg,ok0:false,okR:false,okW:false};
+ if(yy<=0||Rh>=Rp+rg)return H;
+ const y=Math.sqrt(yy),T=2*Math.PI,m=a=>((a%T)+T)%T;
+ H.ok0=true;H.w=2*y;H.phi=Math.atan2(y,x);H.am=m(Math.atan2(-y,x-Rp));H.ap=m(Math.atan2(y,x-Rp));if(H.ap<H.am)H.ap+=T;
+ H.protr=Rh-(Rp-rp);H.depth=Rp+rg-Rh;
+ const wa=Math.PI/N-H.phi;H.web=wa>0?2*Rh*Math.sin(wa):-1;H.webO=2*Rp*Math.sin(Math.PI/N)-2*rg;
+ H.okR=H.w<2*rp-0.02&&H.protr>0;H.okW=H.web>=0.3&&H.webO>=0.3;return H}
+function hbadges(){const H=P.H,f=(v,n=2)=>v.toFixed(n),b=(ok,t)=>`<span class="badge ${ok?'ok':'bad'}">${ok?'✔':'✘'} ${t}</span>`;
+ if(!H.ok0)return b(false,'殼體槽幾何無法成立(孔徑與槽圓不相交)');
+ return b(H.okR,`滾柱保持:槽口寬 ${f(H.w)} mm ${H.okR?'&lt;':'≥'} 滾柱徑 ${f(2*P.rp)} mm(${H.okR?'不會掉出':'需加擋圈/側蓋,或加大針徑 q、降低 K1'})`)+b(H.okW,`槽間肉厚 ${f(Math.min(H.web,H.webO))} mm(${H.okW?'足夠':'&lt; 0.3 mm 太薄'})`)+b(true,`殼體孔與擺線盤間隙 ${f(H.g)} mm(孔徑 ${f(2*H.Rh)} mm,不干涉)`)}
+function hrows(){const H=P.H,f=(v,n=3)=>v.toFixed(n);if(!H.ok0)return[];
+ return[['── 殼體滾柱槽加工尺寸 ──',''],['殼體孔徑 2Rh (mm)',f(2*H.Rh)],['滾柱槽直徑 2rg (mm)',f(2*H.rg)+'(rp+'+f(H.c,2)+')'],['槽中心分佈圓直徑 2Rp (mm)',f(2*P.Rp)],['槽口寬 w (mm)',f(H.w)],['槽包覆角 (°)',f((H.ap-H.am)*180/Math.PI,1)],['槽深(自孔壁) (mm)',f(H.depth)],['槽外徑 2(Rp+rg) (mm)',f(2*(P.Rp+H.rg))],['滾柱凸出孔壁 (mm)',f(H.protr)],['槽間最小肉厚 (mm)',f(Math.min(H.web,H.webO))]]}
+function clear(th){ // 每支針的最小間隙
+ const{N,Rp,rp,e}=P,a=-th/(N-1),c=Math.cos(a),s=Math.sin(a),Cx=e*Math.cos(th),Cy=e*Math.sin(th),out=[];
+ const st=Math.max(1,Math.floor(P.M/(24*N)));
+ for(let j=0;j<N;j++){const ph=2*Math.PI*j/N,px=Rp*Math.cos(ph)-Cx,py=Rp*Math.sin(ph)-Cy,qx=c*px+s*py,qy=-s*px+c*py;
+  let d=1e18;for(let k=0;k<prof.length;k+=st){const dx=qx-prof[k][0],dy=qy-prof[k][1],v=dx*dx+dy*dy;if(v<d)d=v;}
+  out.push(Math.sqrt(d)-rp);}
+ return out;}
+function show(){
+ const f=(v,n=3)=>v.toFixed(n);
+ if(!FAST&&$('mode').value=='rev')renderRev();
+ $('k1v').textContent=f(+$('k1').value,2);$('qv').textContent=f(+$('q').value,2);
+ {const k1=+$('k1').value,kh=$('k1hint');
+  if(kh) kh.textContent=k1<0.45?'K1 偏低：齒很淺、承載偏小，僅在空間極緊時使用。':k1<0.6?'0.45～0.60：齒淺、齒尖圓鈍、不易過切。適合小偏心、要平順低噪音、加工要好做。':k1<=0.75?'0.60～0.75：齒深與尖銳度較平衡，多數減速機落在這裡。':k1<=0.85?'0.75～0.85：齒較深、理論承載較高，但齒頂開始變尖，需確認 ρmin/rp 仍達標。':'> 0.85：齒頂很容易偏尖，嚴格模式常判不合格，一般不建議。';}
+ const b=(ok,t)=>`<span class="badge ${ok?'ok':'bad'}">${ok?'✔':'✘'} ${t}</span>`;
+ {const d=P.Dp-P.Db,pw=$('pinwarn');if(pw){pw.style.color=P.okD?css('--ok'):css('--bad');pw.textContent=P.okD?`✔ 外滾柱最大外徑 ${f(P.Dp,2)} mm,距軸承上限尚有 ${f(Math.max(0,-d),2)} mm`:`✘ 外滾柱最大外徑 ${f(P.Dp,2)} mm,超出軸承 ${f(d,2)} mm;請讓「中心圓直徑 + 外滾柱外徑」至少再減少 ${f(d,2)} mm`}}
+ const rr=P.rhoRatio,rth=P.rth,sharp=P.okU&&rr<rth,sharpBad=!P.okU;
+ const bU=sharpBad?b(false,`曲率半徑 ρmin ${f(P.rho,2)} mm < 針半徑 ${f(P.rp,2)} mm（齒廓過切，齒型尖銳）`):
+  sharp?(P.strictS?b(false,`ρmin/rp = ${f(rr,2)} &lt; 門檻 ${f(rth,2)}（齒型偏尖，嚴格模式不合格；請降低 K1 或略增 q）`):
+   `<span class="badge warn">⚠ ρmin/rp = ${f(rr,2)} &lt; 門檻 ${f(rth,2)}（齒型偏尖，建議降低 K1 或略增 q）</span>`):
+  b(true,`ρmin/rp = ${f(rr,2)} ≥ 門檻 ${f(rth,2)}（齒型平順，ρmin=${f(P.rho,2)} mm）`);
+ $('chk').innerHTML=b(P.okD,`外滾柱最大外徑 ${f(P.Dp,2)} mm ${P.okD?'≤':'>'} 軸承 ${P.Db} mm(${P.okD?'餘裕 '+f(Math.max(0,P.Db-P.Dp),2):'超出 '+f(P.Dp-P.Db,2)} mm)`)+
+  bU+
+  b(P.okI,`最小間隙 ${f(P.minClear,4)} mm(${P.okI?'擺線盤與外滾柱不干涉':'有干涉'})`)+
+  b(P.okE,P.emax<=0?`偏心量 e ${f(P.e,3)} mm（未設上限）`:`偏心量 e ${f(P.e,3)} mm ${P.okE?'≤':'>'} 上限 ${f(P.emax,2)} mm`)+hbadges();
+ const R=[['外滾柱數 N',P.N],['擺線盤齒數 Z',P.N-1],['減速比 i',P.i+' : 1'],['偏心距 e (mm)',f(P.e)],['分佈圓直徑 2Rp (mm)',f(2*P.Rp,2)],['外滾柱直徑 2rp (mm)',f(2*P.rp,2)],['外滾柱最大外徑 (mm)',f(P.Dp,2)],['短幅係數 K1',f(P.K1,2)],['曲率比 ρmin/rp',f(rr,2)+(sharp?' ⚠偏尖':' ✓平順')+' (門檻 '+f(rth,2)+')'],['擺線盤齒頂圓直徑 Da (mm)',f(2*(P.Rp+P.e-P.rp))],['擺線盤齒根圓直徑 Df (mm)',f(2*(P.Rp-P.e-P.rp))],['齒深 = 2e (mm)',f(2*P.e)]].concat(hrows());
+ $('res').innerHTML=R.map(r=>r[0].startsWith('偏心距')?`<tr><td><b>${r[0]}</b></td><td><b>${r[1]}</b></td></tr>`:`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('');
+}
+function css(n){return getComputedStyle(document.documentElement).getPropertyValue(n).trim()}
+function draw(){
+ const cv=$('cv'),g=cv.getContext('2d'),W=cv.width,{N,Rp,rp,e,Db,Dp}=P,z=+$('zm').value||1,sc=z*W/2/(Math.max(Db,Dp)/2*1.1);
+ g.clearRect(0,0,W,W);const ps=(+$('za').value||0)*Math.PI/180,zc=P.H&&P.H.ok0?P.H.Rh*(1-1/z):0,zx=zc*Math.cos(ps),zy=zc*Math.sin(ps);g.save();g.translate(W/2,W/2);g.scale(sc,-sc);g.translate(-zx,-zy);
+ const a=-theta/(N-1),c=Math.cos(a),s=Math.sin(a),Cx=e*Math.cos(theta),Cy=e*Math.sin(theta),lw=1.5/sc;
+ g.lineWidth=lw;g.setLineDash([6/sc,4/sc]);g.strokeStyle=css('--mut');
+ g.beginPath();g.arc(0,0,Db/2,0,7);g.stroke();g.strokeStyle=P.okD?css('--ok'):css('--bad');g.beginPath();g.arc(0,0,Dp/2,0,7);g.stroke();g.setLineDash([]);
+ {const H=P.H;if(H&&H.ok0){g.strokeStyle=css('--mut');g.lineWidth=0.8*lw;for(let j=0;j<N;j++){const ph=2*Math.PI*j/N;
+  g.beginPath();g.arc(0,0,H.Rh,ph+H.phi,ph+2*Math.PI/N-H.phi);g.stroke();
+  g.beginPath();g.arc(Rp*Math.cos(ph),Rp*Math.sin(ph),H.rg,ph+H.am,ph+H.ap);g.stroke();}}}
+ // 擺線盤
+ g.beginPath();prof.forEach((p,k)=>{const x=Cx+c*p[0]-s*p[1],y=Cy+s*p[0]+c*p[1];k?g.lineTo(x,y):g.moveTo(x,y)});g.closePath();
+ g.fillStyle=css('--disc')+'55';g.fill();g.strokeStyle=css('--disc');g.lineWidth=1.2*lw;g.stroke();
+ // 外滾柱
+ const cl=clear(theta);
+ for(let j=0;j<N;j++){const ph=2*Math.PI*j/N;g.beginPath();g.arc(Rp*Math.cos(ph),Rp*Math.sin(ph),rp,0,7);
+  const v=cl[j];g.fillStyle=v<-0.01*rp?css('--bad'):v<0.02*rp+0.0005?css('--ok'):css('--pin');g.globalAlpha=.9;g.fill();g.globalAlpha=1;}
+ // 偏心軸與中心
+ g.beginPath();g.arc(Cx,Cy,e*0.8+rp*0.3,0,7);g.strokeStyle=css('--tx');g.lineWidth=lw;g.stroke();
+ g.beginPath();g.arc(0,0,rp*0.35,0,7);g.fillStyle=css('--tx');g.fill();
+ g.beginPath();g.moveTo(0,0);g.lineTo(Cx,Cy);g.stroke();
+ g.restore();
+ {const tx=x=>W/2+(x-zx)*sc,ty=y=>W/2-(y-zy)*sc,x0=tx(0),y0=ty(0),x1=tx(Cx),y1=ty(Cy),mx=(x0+x1)/2,my=(y0+y1)/2,an=Math.atan2(y1-y0,x1-x0),off=Math.max(30,Math.hypot(x1-x0,y1-y0)*0.5+24),lx=mx-Math.sin(an)*off,ly=my+Math.cos(an)*off;
+  g.save();g.strokeStyle=css('--bad');g.fillStyle=css('--bad');g.lineWidth=2.5;g.beginPath();g.moveTo(x0,y0);g.lineTo(x1,y1);g.stroke();
+  for(const[px,py]of[[x0,y0],[x1,y1]]){g.beginPath();g.arc(px,py,3.5,0,7);g.fill()}
+  g.lineWidth=1;g.beginPath();g.moveTo(mx,my);g.lineTo(lx,ly);g.stroke();
+  const t='偏心量 e = '+P.e.toFixed(3)+' mm';g.font='600 22px system-ui,sans-serif';const w=(g.measureText(t)||{width:200}).width,bx=Math.min(Math.max(lx-w/2,6),W-w-6),by=Math.min(Math.max(ly+8,26),W-10);
+  g.globalAlpha=.88;g.fillStyle=css('--card');g.fillRect(bx-5,by-21,w+10,29);g.globalAlpha=1;g.strokeRect(bx-5,by-21,w+10,29);g.fillStyle=css('--bad');g.fillText(t,bx,by);g.restore()}
+ let mr=0;for(const p of prof){const x=Cx+c*p[0]-s*p[1],y=Cy+s*p[0]+c*p[1];mr=Math.max(mr,Math.hypot(x,y))}
+ $('ang').textContent=`輸入軸 ${(theta*180/Math.PI%360).toFixed(1)}°　擺線盤 ${((a*180/Math.PI)%360).toFixed(2)}°　圈數比 ${(theta/-a).toFixed(2)} : 1`+(P.H.ok0?`　即時孔壁間隙 ${(P.H.Rh-mr).toFixed(3)} mm(設定 ${P.H.g} mm)`:'');
+}
+let last=0;
+function loop(t){const dt=Math.min(.05,(t-last)/1000||0);last=t;if(playing)theta+=dt*(+$('spd').value)*1.2;draw();requestAnimationFrame(loop)}
+$('auto').onclick=autoBest;$('play').onclick=()=>{playing=!playing;$('play').textContent=playing?'暫停':'播放'};
+/* ===== 匯出 ===== */
+const CT=(()=>{const t=[];for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc=b=>{let c=~0;for(const x of b)c=CT[(c^x)&255]^(c>>>8);return ~c>>>0};
+function zip(name,text){const nb=new TextEncoder().encode(name),d=new TextEncoder().encode(text),cr=crc(d),n=nb.length,L=30+n+d.length,C=46+n,o=new DataView(new ArrayBuffer(L+C+22)),u=new Uint8Array(o.buffer);
+ let p=0;const w=(v,s)=>{s==2?o.setUint16(p,v,true):o.setUint32(p,v,true);p+=s};
+ w(0x04034b50,4);w(20,2);w(0,2);w(0,2);w(0,2);w(33,2);w(cr,4);w(d.length,4);w(d.length,4);w(n,2);w(0,2);u.set(nb,p);p+=n;u.set(d,p);p+=d.length;
+ w(0x02014b50,4);w(20,2);w(20,2);w(0,2);w(0,2);w(0,2);w(33,2);w(cr,4);w(d.length,4);w(d.length,4);w(n,2);w(0,2);w(0,2);w(0,2);w(0,2);w(0,4);w(0,4);u.set(nb,p);p+=n;
+ w(0x06054b50,4);w(0,2);w(0,2);w(1,2);w(1,2);w(C,4);w(L,4);w(0,2);return u}
+function discQ(){const{Rp,rp,e,N,K1}=P,pf=t=>{const u=(1-N)*t,psi=Math.atan2(Math.sin(u),1/K1-Math.cos(u));return[Rp*Math.cos(t)-rp*Math.cos(t+psi)-e*Math.cos(N*t)+e,-Rp*Math.sin(t)+rp*Math.sin(t+psi)+e*Math.sin(N*t)]};
+ const n=Math.min(1500,Math.max(480,40*N)),Q=[];for(let k=0;k<n;k++)Q.push(pf(2*Math.PI*k/n));let A=0;Q.forEach((p,i)=>{const q=Q[(i+1)%n];A+=p[0]*q[1]-q[0]*p[1]});if(A<0)Q.reverse();return Q}
+function dxf(){const{Rp,rp,e,N,Db,Dp}=P,o=[],f=v=>(+v).toFixed(5),a=(...v)=>o.push(v.join('\n'));
+ const LY=[['DISC',5],['PINS',30],['PINCIRCLE',8],['BEARING_OD',1],['PIN_MAX_OD',3],['CENTER',7],['HOUSING',6]];
+ const D=Math.max(Db,Dp)/2*1.1;a(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1009',9,'$EXTMIN',10,f(-D),20,f(-D),30,0,9,'$EXTMAX',10,f(D),20,f(D),30,0,9,'$LIMMIN',10,f(-D),20,f(-D),9,'$LIMMAX',10,f(D),20,f(D),0,'ENDSEC');
+ a(0,'SECTION',2,'BLOCKS',0,'ENDSEC');
+ a(0,'SECTION',2,'TABLES',0,'TABLE',2,'VPORT',70,1,0,'VPORT',2,'*ACTIVE',70,0,10,0,20,0,11,1,21,1,12,0,22,0,13,0,23,0,14,10,24,10,15,0,25,0,16,0,26,0,36,1,17,0,27,0,37,0,40,f(D*2),41,1.5,42,50,43,0,44,0,50,0,51,0,71,0,72,100,73,1,74,3,75,0,76,0,77,0,78,0,0,'ENDTAB',0,'TABLE',2,'LTYPE',70,1,0,'LTYPE',2,'CONTINUOUS',70,0,3,'Solid line',72,65,73,0,40,0.0,0,'ENDTAB');
+ a(0,'TABLE',2,'LAYER',70,LY.length);LY.forEach(l=>a(0,'LAYER',2,l[0],70,0,62,l[1],6,'CONTINUOUS'));a(0,'ENDTAB',0,'ENDSEC');
+ a(0,'SECTION',2,'ENTITIES');
+ {/* 單一封閉三次 B-spline 曲線(spline-fit 多段線:控制框 + 曲線點),R12 格式,AutoCAD 可直接 PEDIT/SPLINEDIT 轉成 SPLINE */
+  const S=pbs(discQ()),n=S.FX.length,w=i=>(i%n+n)%n;a(0,'POLYLINE',8,'DISC',66,1,70,5,75,6);
+  for(let k=0;k<n;k++)a(0,'VERTEX',8,'DISC',10,f(S.FX[k]),20,f(S.FY[k]),30,0,70,16);
+  for(let k=0;k<n;k++){const A=[0,1,2,3].map(j=>w(k+j));for(let m=0;m<4;m++){const t=m/4,t2=t*t,t3=t2*t,b0=(1-t)**3/6,b1=(3*t3-6*t2+4)/6,b2=(-3*t3+3*t2+3*t+1)/6,b3=t3/6;
+    a(0,'VERTEX',8,'DISC',10,f(b0*S.FX[A[0]]+b1*S.FX[A[1]]+b2*S.FX[A[2]]+b3*S.FX[A[3]]),20,f(b0*S.FY[A[0]]+b1*S.FY[A[1]]+b2*S.FY[A[2]]+b3*S.FY[A[3]]),30,0,70,8)}}
+  a(0,'SEQEND',8,'DISC')}
+ const C=(l,x,y,r)=>a(0,'CIRCLE',8,l,10,f(x),20,f(y),30,0,40,f(r));
+ for(let j=0;j<N;j++){const ph=2*Math.PI*j/N;C('PINS',Rp*Math.cos(ph),Rp*Math.sin(ph),rp)}
+ C('PINCIRCLE',0,0,Rp);C('BEARING_OD',0,0,Db/2);C('PIN_MAX_OD',0,0,Dp/2);C('CENTER',0,0,rp*0.35);C('CENTER',e,0,rp*0.35);
+ if(P.H.ok0){const H=P.H,d=r=>r*180/Math.PI,m=x=>((x%360)+360)%360;for(let j=0;j<N;j++){const ph=2*Math.PI*j/N;
+  a(0,'ARC',8,'HOUSING',10,0,20,0,30,0,40,f(H.Rh),50,f(m(d(ph+H.phi))),51,f(m(d(ph+2*Math.PI/N-H.phi))));
+  a(0,'ARC',8,'HOUSING',10,f(Rp*Math.cos(ph)),20,f(Rp*Math.sin(ph)),30,0,40,f(H.rg),50,f(m(d(ph+H.am))),51,f(m(d(ph+H.ap))))}}
+ a(0,'ENDSEC',0,'EOF');return o.join('\n')+'\n'}
+function bsp(Q,D0,Dn){const n=Q.length-1,B=5,u=Q.map((_,k)=>k/n),U=[0,0,0,0];for(let j=1;j<n;j++)U.push(u[j]);U.push(1,1,1,1);
+ const nc=n+3,span=x=>{if(x>=1)return nc-1;let lo=3,hi=nc,m=(lo+hi)>>1;while(x<U[m]||x>=U[m+1]){if(x<U[m])hi=m;else lo=m;m=(lo+hi)>>1}return m},
+ bas=(s,x)=>{const N=[1,0,0,0],L=[],R=[];for(let j=1;j<=3;j++){L[j]=x-U[s+1-j];R[j]=U[s+j]-x;let sv=0;for(let r=0;r<j;r++){const t=N[r]/(R[r+1]+L[j-r]);N[r]=sv+R[r+1]*t;sv=L[j-r]*t}N[j]=sv}return N};
+ const A=[],bx=[],by=[],row0=()=>new Array(2*B+1).fill(0),put=(r,c,v)=>{A[r][c-r+B]=v};
+ for(let r=0;r<nc;r++)A.push(row0());
+ put(0,0,1);bx[0]=Q[0][0];by[0]=Q[0][1];
+ put(1,0,-1);put(1,1,1);bx[1]=U[4]/3*D0[0];by[1]=U[4]/3*D0[1];
+ for(let k=1;k<n;k++){const r=k+1,s=span(u[k]),N=bas(s,u[k]);for(let q=0;q<=3;q++)put(r,s-3+q,N[q]);bx[r]=Q[k][0];by[r]=Q[k][1]}
+ put(n+1,n+1,-1);put(n+1,n+2,1);bx[n+1]=(1-U[n+2])/3*Dn[0];by[n+1]=(1-U[n+2])/3*Dn[1];
+ put(n+2,n+2,1);bx[n+2]=Q[n][0];by[n+2]=Q[n][1];
+ for(let k=0;k<nc;k++){const pv=A[k][B];if(!pv)return null;for(let i=k+1;i<=Math.min(nc-1,k+B);i++){const f=A[i][k-i+B]/pv;if(!f)continue;for(let j=k;j<=Math.min(nc-1,k+B);j++)A[i][j-i+B]-=f*A[k][j-k+B];bx[i]-=f*bx[k];by[i]-=f*by[k]}}
+ const cx=[],cy=[];for(let i=nc-1;i>=0;i--){let sx=bx[i],sy=by[i];for(let j=i+1;j<=Math.min(nc-1,i+B);j++){sx-=A[i][j-i+B]*cx[j];sy-=A[i][j-i+B]*cy[j]}cx[i]=sx/A[i][B];cy[i]=sy/A[i][B]}
+ return{U,cx,cy}}
+/* 單一封閉週期 C2 三次 B-spline:通過全部取樣點,首尾無縫銜接(無端點、無折角) */
+function pbs(Q){const n=Q.length,cx=Q.map(p=>p[0]),cy=Q.map(p=>p[1]);
+ for(let it=0;it<120;it++){let d=0;for(let i=0;i<n;i++){const a=(i+n-1)%n,b=(i+1)%n,nx=(6*Q[i][0]-cx[a]-cx[b])/4,ny=(6*Q[i][1]-cy[a]-cy[b])/4;d=Math.max(d,Math.abs(nx-cx[i]),Math.abs(ny-cy[i]));cx[i]=nx;cy[i]=ny}if(d<1e-12)break}
+ cx.unshift(cx.pop());cy.unshift(cy.pop());/* 控制點對齊節點:曲線在 u=3+k 通過 Q[k] */
+ const FX=cx.slice(),FY=cy.slice();
+ /* 轉成「端點夾緊」的標準 B-spline(每段三次 Bézier 銜接),所有 CAD 都讀得懂;幾何上仍是 C2 平滑的單一封閉曲線 */
+ const X=[],Y=[],U=[0,0,0,0],w=i=>(i%n+n)%n;
+ for(let k=0;k<n;k++){const P=[0,1,2,3].map(j=>w(k+j));
+  const bx=[(cx[P[0]]+4*cx[P[1]]+cx[P[2]])/6,(2*cx[P[1]]+cx[P[2]])/3,(cx[P[1]]+2*cx[P[2]])/3],by=[(cy[P[0]]+4*cy[P[1]]+cy[P[2]])/6,(2*cy[P[1]]+cy[P[2]])/3,(cy[P[1]]+2*cy[P[2]])/3];
+  for(let j=0;j<3;j++){X.push(bx[j]);Y.push(by[j])}}
+ X.push(X[0]);Y.push(Y[0]);
+ for(let k=1;k<n;k++)U.push(k,k,k);U.push(n,n,n,n);
+ return{U,cx:X,cy:Y,FX,FY}}
+function step(T){const{Rp,rp,e,N}=P,E=[];let id=0;
+ const add=s=>{E.push('#'+(++id)+'='+s+';');return id},f=v=>(+v).toFixed(6),R=i=>'#'+i;
+ const pt=(x,y,z)=>add(`CARTESIAN_POINT('',(${f(x)},${f(y)},${f(z)}))`),dr=(x,y,z)=>add(`DIRECTION('',(${f(x)},${f(y)},${f(z)}))`),
+  ax=(p,n,r)=>add(`AXIS2_PLACEMENT_3D('',${R(p)},${R(n)},${R(r)})`),vx=p=>add(`VERTEX_POINT('',${R(p)})`),
+  ec=(a,b,c)=>add(`EDGE_CURVE('',${R(a)},${R(b)},${R(c)},.T.)`),oe=(k,s)=>add(`ORIENTED_EDGE('',*,*,${R(k)},${s?'.T.':'.F.'})`),
+  vec=(d,l)=>add(`VECTOR('',${R(d)},${f(l)})`),ln=(p,v)=>add(`LINE('',${R(p)},${R(v)})`),pl=(p,n,r)=>add(`PLANE('',${R(ax(p,n,r))})`),
+  face=(oes,sf)=>{const lp=add(`EDGE_LOOP('',(${oes.map(R)}))`),b=add(`FACE_OUTER_BOUND('',${R(lp)},.T.)`);return add(`ADVANCED_FACE('',(${R(b)}),${R(sf)},.T.)`)},
+  solid=(F,name)=>{const sh=add(`CLOSED_SHELL('',(${F.map(R)}))`);return add(`MANIFOLD_SOLID_BREP('${name}',${R(sh)})`)};
+ const zD=dr(0,0,1),mzD=dr(0,0,-1),xD=dr(1,0,0);
+ const prism=(poly,z0,z1,name)=>{const n=poly.length,Bp=poly.map(p=>pt(p[0],p[1],z0)),Tp=poly.map(p=>pt(p[0],p[1],z1)),Bv=Bp.map(vx),Tv=Tp.map(vx),vv=vec(zD,z1-z0),Eb=[],Et=[],Ev=[],Dd=[];
+  for(let i=0;i<n;i++){const j=(i+1)%n,dx=poly[j][0]-poly[i][0],dy=poly[j][1]-poly[i][1],L=Math.hypot(dx,dy),d=dr(dx/L,dy/L,0),v=vec(d,L);Dd.push([d,dx/L,dy/L]);
+   Eb.push(ec(Bv[i],Bv[j],ln(Bp[i],v)));Et.push(ec(Tv[i],Tv[j],ln(Tp[i],v)));Ev.push(ec(Bv[i],Tv[i],ln(Bp[i],vv)))}
+  const F=[];
+  F.push(face(Array.from({length:n},(_,k)=>oe(Eb[n-1-k],false)),pl(pt(0,0,z0),mzD,xD)));
+  F.push(face(Et.map(k=>oe(k,true)),pl(pt(0,0,z1),zD,xD)));
+  for(let i=0;i<n;i++){const j=(i+1)%n,d=Dd[i];F.push(face([oe(Eb[i],true),oe(Ev[j],true),oe(Et[i],false),oe(Ev[i],false)],pl(Bp[i],dr(d[2],-d[1],0),d[0])))}
+  return solid(F,name)};
+ const cyl=(cx,cy,r,z0,z1,name)=>{const pB=pt(cx+r,cy,z0),pT=pt(cx+r,cy,z1),vB=vx(pB),vT=vx(pT),
+   cB=add(`CIRCLE('',${R(ax(pt(cx,cy,z0),zD,xD))},${f(r)})`),cT=add(`CIRCLE('',${R(ax(pt(cx,cy,z1),zD,xD))},${f(r)})`),
+   eB=ec(vB,vB,cB),eT=ec(vT,vT,cT),eS=ec(vB,vT,ln(pB,vec(zD,z1-z0))),
+   F=[face([oe(eB,false)],pl(pt(cx,cy,z0),mzD,xD)),face([oe(eT,true)],pl(pt(cx,cy,z1),zD,xD)),
+    face([oe(eB,true),oe(eS,true),oe(eT,false),oe(eS,false)],add(`CYLINDRICAL_SURFACE('',${R(ax(pt(cx,cy,z0),zD,xD))},${f(r)})`))];
+  return solid(F,name)};
+ const bsprism=(S,z0,z1,name)=>{const L=S.U[S.U.length-1],dk=[],mu=[];S.U.forEach(u=>{if(dk.length&&dk[dk.length-1]==u)mu[mu.length-1]++;else{dk.push(u);mu.push(1)}});
+  const B=S.cx.map((x,i)=>pt(x,S.cy[i],z0)),Tp=S.cx.map((x,i)=>pt(x,S.cy[i],z1)),vB=vx(B[0]),vT=vx(Tp[0]),
+   cv=ids=>add(`B_SPLINE_CURVE_WITH_KNOTS('',3,(${ids.map(R)}),.UNSPECIFIED.,.T.,.F.,(${mu}),(${dk.map(f)}),.UNSPECIFIED.)`),
+   eB=ec(vB,vB,cv(B)),eT=ec(vT,vT,cv(Tp)),eS=ec(vB,vT,ln(pt(S.cx[0],S.cy[0],z0),vec(zD,z1-z0))),
+   sf=add(`B_SPLINE_SURFACE_WITH_KNOTS('',3,1,(${B.map((b,i)=>'('+R(b)+','+R(Tp[i])+')')}),.UNSPECIFIED.,.F.,.F.,.F.,(${mu}),(2,2),(${dk.map(f)}),(0.,${f(z1-z0)}),.UNSPECIFIED.)`),
+   F=[face([oe(eB,false)],pl(pt(0,0,z0),mzD,xD)),face([oe(eT,true)],pl(pt(0,0,z1),zD,xD)),face([oe(eB,true),oe(eS,true),oe(eT,false),oe(eS,false)],sf)];
+  return solid(F,name)};
+ const brs=[];
+ brs.push(bsprism(pbs(discQ()),0,T,'CYCLOID_DISC'));
+ for(let j=0;j<N;j++){const ph=2*Math.PI*j/N;brs.push(cyl(Rp*Math.cos(ph),Rp*Math.sin(ph),rp,-2,T+2,'PIN_'+(j+1)))}
+ const o=ax(pt(0,0,0),dr(0,0,1),dr(1,0,0));
+ const lu=add("(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))"),au=add("(NAMED_UNIT(*)PLANE_ANGLE_UNIT()SI_UNIT($,.RADIAN.))"),su=add("(NAMED_UNIT(*)SI_UNIT($,.STERADIAN.)SOLID_ANGLE_UNIT())"),
+  un=add(`UNCERTAINTY_MEASURE_WITH_UNIT(LENGTH_MEASURE(1.E-05),${R(lu)},'distance_accuracy_value','confusion accuracy')`),
+  cx=add(`(GEOMETRIC_REPRESENTATION_CONTEXT(3)GLOBAL_UNCERTAINTY_ASSIGNED_CONTEXT((${R(un)}))GLOBAL_UNIT_ASSIGNED_CONTEXT((${R(lu)},${R(au)},${R(su)}))REPRESENTATION_CONTEXT('Context #1','3D Context with UNIT and UNCERTAINTY'))`),
+  app=add("APPLICATION_CONTEXT('core data for automotive mechanical design processes')");
+ add(`APPLICATION_PROTOCOL_DEFINITION('international standard','automotive_design',2000,${R(app)})`);
+ const pc=add(`PRODUCT_CONTEXT('',${R(app)},'mechanical')`),pr=add(`PRODUCT('CYCLOIDAL_DRIVE','CYCLOIDAL_DRIVE','',(${R(pc)}))`),pf=add(`PRODUCT_DEFINITION_FORMATION('','',${R(pr)})`),
+  pdc=add(`PRODUCT_DEFINITION_CONTEXT('part definition',${R(app)},'design')`),pd=add(`PRODUCT_DEFINITION('design','',${R(pf)},${R(pdc)})`),ps=add(`PRODUCT_DEFINITION_SHAPE('','',${R(pd)})`),
+  sr=add(`ADVANCED_BREP_SHAPE_REPRESENTATION('',(${[o,...brs].map(R)}),${R(cx)})`);
+ add(`SHAPE_DEFINITION_REPRESENTATION(${R(ps)},${R(sr)})`);add(`PRODUCT_RELATED_PRODUCT_CATEGORY('part','',(${R(pr)}))`);
+ return "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('Cycloidal drive'),'2;1');\nFILE_NAME('cycloidal.step','2026-11-01T00:00:00',(''),(''),'','','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));\nENDSEC;\nDATA;\n"+E.join('\n')+"\nENDSEC;\nEND-ISO-10303-21;\n"}
+let DL=null;
+async function ex(kind){const m=$('exmsg');
+ if(!P.ok){m.textContent='請先讓所有檢查全部通過再匯出。';return}
+ const T=Math.max(1,+$('thk').value||10),base=`cycloidal_i${P.i}_D${P.Db}`;
+ try{const txt=kind=='dxf'?dxf():step(T);if(!txt||txt.length<100)throw new Error('產生的內容是空的');
+  if(!DL){const bl=new Blob([txt],{type:'application/octet-stream'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=base+'.'+kind;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);m.textContent='已下載 '+base+'.'+kind+'('+(bl.size/1024).toFixed(1)+' KB)。';return}
+  const raw=$('ztxt').checked,u=raw?null:zip(base+'.'+kind,txt),data=raw?txt:u.buffer.slice(0),fn=raw?base+'_'+kind+'.txt':base+'_'+kind+'.zip',kb=((raw?new TextEncoder().encode(txt).length:u.length)/1024).toFixed(1);
+  await DL.save({filename:fn,data});m.textContent='已匯出 '+fn+'('+kb+' KB,內容 '+txt.length+' 字元)。'+(raw?'請把副檔名 .txt 改成 .'+kind+'。':'解壓縮後取得 .'+kind+' 檔。')}
+ catch(err){m.textContent=err&&err.code=='declined'?'已取消匯出。':'匯出失敗:'+((err&&err.message)||err)}}
+$('bdxf').onclick=()=>ex('dxf');$('bstp').onclick=()=>ex('step');
+try{window.claude&&window.claude.use('downloads').then(d=>{DL=d;if(d)$('exbox').style.display='block'}).catch(()=>{})}catch(_){}
+let REVR=null;
+function solveRev(hold){const box=$('rev'),keep=$('k1').value,ok=[],mine=$('mine').checked;
+ const rth=Math.max(1,+$('rhomin').value||1.25),mUth=rth-1;
+ FAST=true;const rows=[];for(let k=0.1;k<0.985;k+=0.01){$('k1').value=k.toFixed(2);calc();if(P.ok){ok.push(+k.toFixed(2));const mU=(P.rho-P.rp)/P.rp,mR=P.H.ok0?(2*P.rp-P.H.w)/(2*P.rp):0;rows.push({k:+k.toFixed(2),e:P.e,mU,mR,rr:P.rhoRatio,s:Math.min(mU/Math.max(0.05,mUth),mR/0.05)})}}FAST=false;
+ if(!ok.length){$('k1').value=keep;calc();
+  const why=!P.okD?`外滾柱最大外徑 ${P.Dp.toFixed(2)} mm 已超過軸承最大外徑 ${P.Db} mm`:!P.okE?`偏心量超過上限 e_max=${P.emax} mm`:!P.okS?`齒型偏尖（ρ/rp 未達門檻 ${rth}）`:'K1=0.10~0.98 內沒有同時滿足曲率、干涉、槽保持、肉厚、偏心上限與齒型平順的解(可調整滾柱、中心圓、間隙、e_max 或放寬平順門檻)';
+  box.innerHTML=`<span class="badge bad">✘ 無可行偏心量:${why}</span>`;REVR=null;return}
+ const lo=ok[0],hi=ok[ok.length-1];
+ /* 平順: ρ/rp ≥ 門檻 且槽口餘裕足夠; 最小偏心優先時在平順解中取最小 K1 */
+ const smooth=rows.filter(r=>r.rr>=rth-1e-9&&r.mR>=0.05&&r.k<=0.9);
+ let pick;
+ if(mine){
+  const pool=smooth.length?smooth:rows;
+  pick=pool.reduce((a,b)=>b.k<a.k?b:a);
+ }else{
+  const safe=rows.filter(r=>r.s>=1&&r.k<=0.85);
+  pick=safe.length?safe.reduce((a,b)=>b.k>a.k?b:a):rows.reduce((a,b)=>b.s>a.s?b:a);
+ }
+ const kr=pick.k;
+ REVR={lo,hi,kr,safe:smooth.length>0,mine,rth};$('k1').value=hold?keep:kr;calc();
+ renderRev()}
+function renderRev(){if(!REVR||!P)return;const{lo,hi,kr,mine,rth}=REVR,Rp=P.Rp,N=P.N,k=P.K1,f=(v,n=3)=>v.toFixed(n),inR=k>=lo-1e-9&&k<=hi+1e-9,
+ R=[['外滾柱數 N / 擺線盤齒數',N+' / '+(N-1)],['可行 K1 範圍',lo.toFixed(2)+' ~ '+hi.toFixed(2)],['可行偏心量 e 範圍 (mm)',f(lo*Rp/N)+' ~ '+f(hi*Rp/N)],['最佳 K1 / e (mm)'+(REVR.safe?'':'(平順餘裕不足,取最穩健)')+(mine?' [最小偏心]':''),f(kr,2)+' / '+f(kr*Rp/N,4)],['★ 目前採用 K1 / e (mm)',f(k,2)+' / '+f(P.e,4)],['目前 ρmin/rp',f(P.rhoRatio,2)+' (門檻 '+(rth||P.rth).toFixed(2)+')']];
+ $('rev').innerHTML=`<table>${R.map((r,i)=>i==4?`<tr><td><b>${r[0]}</b></td><td><b>${r[1]}</b></td></tr>`:`<tr><td>${r[0]}</td><td>${r[1]}</td></tr>`).join('')}</table><span class="badge ${inR&&P.ok?'ok':'bad'}">${inR&&P.ok?'✔ 目前採用值在可行範圍內':'✘ 目前採用值不在可行範圍或未通過檢查'}</span><div class="lg">以「目前採用」為準。勾選「最小偏心優先」時:在 ρ/rp≥門檻、槽口餘裕≥5%、K1≤0.9 的平順解中取最小偏心;未勾選則在安全餘裕內取最大偏心。開啟「嚴格避免偏尖」後，未達門檻的解會被判定不合格。</div>`}
+let FAST=false;
+function autoSolve(){if($('mode').value=='rev')solveRev(true)}
+function autoBest(){const rev=$('mode').value=='rev',msg=$('automsg'),mine=$('mine').checked;
+ const rth=Math.max(1,+$('rhomin').value||1.25);
+ if(rev){solveRev();msg.textContent=REVR?(mine?'已套用最小偏心(平順餘裕內取最小 e)。':'已套用最佳 K1(安全餘裕內取最大偏心量)。'):'找不到可行解,請調整滾柱尺寸、中心圓、軸承外徑、間隙、偏心上限或平順門檻。';return}
+ const k0=$('k1').value,q0=$('q').value,mid=a=>{const m=(a[0]+a[a.length-1])/2;return a.reduce((x,y)=>Math.abs(y-m)<Math.abs(x-m)?y:x)};
+ const Ks=[],Qs=[];for(let k=0.1;k<0.985;k+=0.02)Ks.push(+k.toFixed(2));for(let q=0.2;q<0.805;q+=0.02)Qs.push(+q.toFixed(2));
+ let best=null;FAST=true;
+ for(const q of Qs){const ok=[],rows=[];$('q').value=q;for(const k of Ks){$('k1').value=k;calc();if(P.ok){ok.push(k);const mU=(P.rho-P.rp)/P.rp,mR=P.H.ok0?(2*P.rp-P.H.w)/(2*P.rp):0;rows.push({k,e:P.e,mU,mR,rr:P.rhoRatio})}}
+  if(ok.length){const score=ok.length;if(!best||score>best.score||(score===best.score&&(mine?Math.min(...ok)<Math.min(...best.ok):Math.max(...ok)>Math.max(...best.ok))))best={q,ok,rows,score}}}
+ FAST=false;
+ if(best){
+  let k;
+  if(mine){
+   const smooth=best.rows.filter(r=>r.rr>=rth-1e-9&&r.mR>=0.05&&r.k<=0.9);
+   const pool=smooth.length?smooth:best.rows;
+   k=pool.reduce((a,b)=>a.k<b.k?a:b).k;
+  }else k=mid(best.ok);
+  $('q').value=best.q;$('k1').value=k;calc();
+  msg.textContent=mine?`已套用最小偏心:q = ${best.q.toFixed(2)}、K1 = ${(+k).toFixed(2)} (e=${P.e.toFixed(3)} mm, ρ/rp=${P.rhoRatio.toFixed(2)}, 平順門檻 ${rth})。`:`已套用最佳解:q = ${best.q.toFixed(2)}、K1 = ${(+k).toFixed(2)}(可行 K1 ${best.ok[0].toFixed(2)} ~ ${best.ok[best.ok.length-1].toFixed(2)}, ρ/rp=${P.rhoRatio.toFixed(2)})。`;
+ }else{$('q').value=q0;$('k1').value=k0;calc();msg.textContent='找不到可行解,請調整輸入條件(減速比、軸承外徑、間隙、偏心上限或放寬齒型平順門檻)。'}}
+function run(){autoSolve();calc()}
+function setMode(){const rev=$('mode').value=='rev';$('revbox').style.display=rev?'block':'none';$('revcard').style.display=rev?'block':'none';$('q').disabled=rev;
+ if(rev){$('rpcd').value=(2*P.Rp).toFixed(3);$('rpd').value=(2*P.rp).toFixed(3);solveRev()}else run()}
+$('mode').onchange=setMode;$('brev').onclick=()=>solveRev(false);
+['rpcd','rpd','ratio','dmax','gc','gg','emax','rhomin'].forEach(id=>$(id).addEventListener('input',()=>{if($('mode').value=='rev')solveRev(false)}));
+['rpcd','rpd','ratio','dmax','emax','rhomin'].forEach(id=>$(id).addEventListener('change',()=>{if($('mode').value=='rev')solveRev(true)}));
+$('mine').addEventListener('change',()=>{if($('mode').value=='rev')solveRev(false);else calc()});
+$('strictS').addEventListener('change',()=>{if($('mode').value=='rev')solveRev(false);else calc()});
+['ratio','dmax','k1','q','gc','gg','rpcd','rpd','emax','rhomin'].forEach(id=>$(id).addEventListener('input',run));
+calc();requestAnimationFrame(loop);
+</script></body></html>

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>擺線針輪(賽驅樂)減速機計算器 V2</title>
+<title>擺線針輪(賽驅樂)減速機計算器 V3</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mut:#667085;--bd:#d9dde5;--ac:#2563eb;--ok:#16a34a;--bad:#dc2626;--pin:#d97706;--disc:#2563eb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151c;--card:#1b1f2a;--tx:#e8eaf0;--mut:#98a2b3;--bd:#323848;--ac:#60a5fa;--ok:#4ade80;--bad:#f87171;--pin:#fbbf24;--disc:#60a5fa}}
@@ -25,7 +25,7 @@ canvas{width:100%;aspect-ratio:1;max-height:640px;display:block;border-radius:8p
 table.guide td,table.guide td:last-child{text-align:left;font-variant-numeric:normal;vertical-align:top}
 table.guide td:first-child:not([colspan]){white-space:nowrap;width:7.2em;color:var(--mut)}
 </style></head><body>
-<h1>擺線針輪(賽驅樂)減速機 計算器 V2</h1>
+<h1>擺線針輪(賽驅樂)減速機 計算器 V3</h1>
 <div class="wrap">
 <div>
  <div class="card"><h2>輸入條件</h2>
@@ -50,8 +50,9 @@ table.guide td:first-child:not([colspan]){white-space:nowrap;width:7.2em;color:v
   <div id="exbox" style="margin-top:10px;border-top:1px solid var(--bd);padding-top:8px"><label>擺線盤輪廓:整圈單一封閉平滑曲線(DXF 與 STEP 皆是)</label>
    <label>圓盤厚度 (mm,供 STEP 使用)</label><input type="number" id="thk" value="10" min="1" step="1">
    <button id="bdxf">匯出 DXF(2D)</button><button id="bstp">匯出 STEP(3D)</button>
-   <label style="margin-top:8px;gap:6px;justify-content:flex-start;align-items:center"><input type="checkbox" id="ztxt">不用 zip,改存純文字 .txt(下載後把副檔名改成 .dxf / .step)</label>
-   <div class="lg" id="exmsg">檔案以 zip 封裝,解壓後取得 .dxf / .step;需所有檢查全部通過才能匯出;擺線盤輪廓在 DXF 與 STEP 中都是單一封閉平滑曲線(STEP 為 B-spline 曲面,非小平面)。</div></div>
+   <label style="margin-top:8px;gap:6px;justify-content:flex-start;align-items:center"><input type="checkbox" id="ztxt" checked>存成純文字 .txt（下載後把副檔名改成 .dxf / .step；相容性最好）</label>
+   <label style="gap:6px;justify-content:flex-start;align-items:center"><input type="checkbox" id="forceEx">強制匯出（檢查未全過也可下載）</label>
+   <div class="lg" id="exmsg">檔案以 zip 封裝,解壓後取得 .dxf / .step;需所有檢查全部通過才能匯出;擺線盤輪廓在 DXF 與 STEP 中都是單一封閉平滑曲線(STEP 為 B-spline 曲面,非小平面);兩處記號：①偏心後擺線盤中心 (e,0)（discQ 有 +e 平移，不是固定座標原點）②齒頂中心圓上的齒頂。DXF: TIPMARK; STEP: DISC_CENTER / TIP_CENTER。</div></div>
  </div>
  <div class="card" id="revcard" style="display:none"><h2>反推結果</h2><div id="rev"></div></div>
  <div class="card"><h2>計算結果</h2><div id="chk"></div><table id="res"></table></div>
@@ -70,7 +71,7 @@ table.guide td:first-child:not([colspan]){white-space:nowrap;width:7.2em;color:v
 運動:輸入軸轉 θ,擺線盤自轉 −θ/(N−1)
 反推:已知 Rp、rp、N=i+1 → e = K1·Rp/N,掃描 K1 找出同時滿足曲率、干涉、槽保持、偏心上限的範圍
  齒頂圓 Da = 2(Rp+e−rp),齒根圓 Df = 2(Rp−e−rp),齒深 = 2e
- V2:可設 e_max 上限;可調齒型平順門檻 ρmin/rp(預設1.25)
+ V3:可設 e_max 上限;可調齒型平順門檻 ρmin/rp(預設1.25)
  「嚴格避免偏尖」開啟時未達門檻視為不合格;「最小偏心優先」在平順解中取最小 e
  齒型檢測: ρmin < rp → 過切; ρmin/rp < 1.25 → 偏尖(建議降 K1 或略增 q)</div>
  <table class="guide">
@@ -205,8 +206,15 @@ function zip(name,text){const nb=new TextEncoder().encode(name),d=new TextEncode
  w(0x06054b50,4);w(0,2);w(0,2);w(1,2);w(1,2);w(C,4);w(L,4);w(0,2);return u}
 function discQ(){const{Rp,rp,e,N,K1}=P,pf=t=>{const u=(1-N)*t,psi=Math.atan2(Math.sin(u),1/K1-Math.cos(u));return[Rp*Math.cos(t)-rp*Math.cos(t+psi)-e*Math.cos(N*t)+e,-Rp*Math.sin(t)+rp*Math.sin(t+psi)+e*Math.sin(N*t)]};
  const n=Math.min(1500,Math.max(480,40*N)),Q=[];for(let k=0;k<n;k++)Q.push(pf(2*Math.PI*k/n));let A=0;Q.forEach((p,i)=>{const q=Q[(i+1)%n];A+=p[0]*q[1]-q[0]*p[1]});if(A<0)Q.reverse();return Q}
+/* discQ 的 x 有 +e 平移 → 擺線盤中心(偏心後)為 (e,0), 不是 (0,0)
+   齒頂中心圓: 以盤中心為圓心、半徑 Rt=Rp+e−rp (=Da/2) */
+function tipMark(){const{Rp,rp,e}=P,Q=discQ(),ox=e,oy=0;
+ let bx=Q[0][0],by=Q[0][1],br=0;
+ for(const p of Q){const dx=p[0]-ox,dy=p[1]-oy,r2=dx*dx+dy*dy;if(r2>br){br=r2;bx=p[0];by=p[1]}}
+ const ang=Math.atan2(by-oy,bx-ox),c=Math.cos(ang),s=Math.sin(ang),Rt=Math.max(0.1,Rp+e-rp);
+ return{ox,oy,x:ox+Rt*c,y:oy+Rt*s,r:Rt,ang,c,s,Rt}}
 function dxf(){const{Rp,rp,e,N,Db,Dp}=P,o=[],f=v=>(+v).toFixed(5),a=(...v)=>o.push(v.join('\n'));
- const LY=[['DISC',5],['PINS',30],['PINCIRCLE',8],['BEARING_OD',1],['PIN_MAX_OD',3],['CENTER',7],['HOUSING',6]];
+ const LY=[['DISC',5],['PINS',30],['PINCIRCLE',8],['BEARING_OD',1],['PIN_MAX_OD',3],['CENTER',7],['HOUSING',6],['TIPMARK',1]];
  const D=Math.max(Db,Dp)/2*1.1;a(0,'SECTION',2,'HEADER',9,'$ACADVER',1,'AC1009',9,'$EXTMIN',10,f(-D),20,f(-D),30,0,9,'$EXTMAX',10,f(D),20,f(D),30,0,9,'$LIMMIN',10,f(-D),20,f(-D),9,'$LIMMAX',10,f(D),20,f(D),0,'ENDSEC');
  a(0,'SECTION',2,'BLOCKS',0,'ENDSEC');
  a(0,'SECTION',2,'TABLES',0,'TABLE',2,'VPORT',70,1,0,'VPORT',2,'*ACTIVE',70,0,10,0,20,0,11,1,21,1,12,0,22,0,13,0,23,0,14,10,24,10,15,0,25,0,16,0,26,0,36,1,17,0,27,0,37,0,40,f(D*2),41,1.5,42,50,43,0,44,0,50,0,51,0,71,0,72,100,73,1,74,3,75,0,76,0,77,0,78,0,0,'ENDTAB',0,'TABLE',2,'LTYPE',70,1,0,'LTYPE',2,'CONTINUOUS',70,0,3,'Solid line',72,65,73,0,40,0.0,0,'ENDTAB');
@@ -224,6 +232,21 @@ function dxf(){const{Rp,rp,e,N,Db,Dp}=P,o=[],f=v=>(+v).toFixed(5),a=(...v)=>o.pu
  if(P.H.ok0){const H=P.H,d=r=>r*180/Math.PI,m=x=>((x%360)+360)%360;for(let j=0;j<N;j++){const ph=2*Math.PI*j/N;
   a(0,'ARC',8,'HOUSING',10,0,20,0,30,0,40,f(H.Rh),50,f(m(d(ph+H.phi))),51,f(m(d(ph+2*Math.PI/N-H.phi))));
   a(0,'ARC',8,'HOUSING',10,f(Rp*Math.cos(ph)),20,f(Rp*Math.sin(ph)),30,0,40,f(H.rg),50,f(m(d(ph+H.am))),51,f(m(d(ph+H.ap))))}}
+ {/* 兩處記號: ①偏心後擺線盤中心(e,0) ②齒頂(在以盤中心為圓心的齒頂中心圓上) */
+  const tm=tipMark(),L='TIPMARK',Rt=tm.Rt,ox=tm.ox,oy=tm.oy;
+  const dc=Math.max(0.5,Rt*0.02), dd=dc*1.6;
+  const tc=Math.max(0.4,Rt*0.015), td=Math.max(1.0,Rt*0.045);
+  /* ① 擺線盤中心(偏心後) */
+  C(L,ox,oy,dc);
+  a(0,'LINE',8,L,10,f(ox-dd),20,f(oy),30,0,11,f(ox+dd),21,f(oy),31,0);
+  a(0,'LINE',8,L,10,f(ox),20,f(oy-dd),30,0,11,f(ox),21,f(oy+dd),31,0);
+  /* ② 齒頂 */
+  C(L,tm.x,tm.y,tc);
+  a(0,'LINE',8,L,10,f(tm.x-tm.c*td),20,f(tm.y-tm.s*td),30,0,11,f(tm.x+tm.c*td),21,f(tm.y+tm.s*td),31,0);
+  a(0,'LINE',8,L,10,f(tm.x+tm.s*td),20,f(tm.y-tm.c*td),30,0,11,f(tm.x-tm.s*td),21,f(tm.y+tm.c*td),31,0);
+  /* 輔助: 以盤中心為圓心的齒頂中心圓 + 中心→齒頂 */
+  C(L,ox,oy,Rt);
+  a(0,'LINE',8,L,10,f(ox),20,f(oy),30,0,11,f(tm.x),21,f(tm.y),31,0)}
  a(0,'ENDSEC',0,'EOF');return o.join('\n')+'\n'}
 function bsp(Q,D0,Dn){const n=Q.length-1,B=5,u=Q.map((_,k)=>k/n),U=[0,0,0,0];for(let j=1;j<n;j++)U.push(u[j]);U.push(1,1,1,1);
  const nc=n+3,span=x=>{if(x>=1)return nc-1;let lo=3,hi=nc,m=(lo+hi)>>1;while(x<U[m]||x>=U[m+1]){if(x<U[m])hi=m;else lo=m;m=(lo+hi)>>1}return m},
@@ -283,6 +306,22 @@ function step(T){const{Rp,rp,e,N}=P,E=[];let id=0;
   return solid(F,name)};
  const brs=[];
  brs.push(bsprism(pbs(discQ()),0,T,'CYCLOID_DISC'));
+ {/* 兩處記號: ①偏心後盤中心(e,0) ②齒頂 */
+  const tm=tipMark(),Rt=tm.Rt,ox=tm.ox,oy=tm.oy,h=Math.max(0.2,Math.min(0.5,T*0.05));
+  const w=Math.max(0.22,Rt*0.008),tick=Math.max(1.0,Rt*0.045);
+  const c=tm.c,sn=tm.s,nx=-sn,ny=c,t0=tick*0.5;
+  /* ① 偏心後擺線盤中心 */
+  const polyCX=[[ox-t0,oy-w],[ox-t0,oy+w],[ox+t0,oy+w],[ox+t0,oy-w]];
+  const polyCY=[[ox-w,oy-t0],[ox+w,oy-t0],[ox+w,oy+t0],[ox-w,oy+t0]];
+  brs.push(prism(polyCX,T,T+h,'DISC_CENTER_X'));
+  brs.push(prism(polyCY,T,T+h,'DISC_CENTER_Y'));
+  brs.push(cyl(ox,oy,Math.max(0.35,Rt*0.012),T,T+h*1.2,'DISC_CENTER'));
+  /* ② 齒頂(齒頂中心圓上) */
+  const polyT=[[tm.x-c*t0-w*nx,tm.y-sn*t0-w*ny],[tm.x+c*t0-w*nx,tm.y+sn*t0-w*ny],[tm.x+c*t0+w*nx,tm.y+sn*t0+w*ny],[tm.x-c*t0+w*nx,tm.y-sn*t0+w*ny]];
+  const polyR=[[tm.x-nx*t0-w*c,tm.y-ny*t0-w*sn],[tm.x+nx*t0-w*c,tm.y+ny*t0-w*sn],[tm.x+nx*t0+w*c,tm.y+ny*t0+w*sn],[tm.x-nx*t0+w*c,tm.y-ny*t0+w*sn]];
+  brs.push(prism(polyT,T,T+h,'TIP_MARK_T'));
+  brs.push(prism(polyR,T,T+h,'TIP_MARK_R'));
+  brs.push(cyl(tm.x,tm.y,Math.max(0.3,Rt*0.01),T,T+h*1.2,'TIP_CENTER'))}
  for(let j=0;j<N;j++){const ph=2*Math.PI*j/N;brs.push(cyl(Rp*Math.cos(ph),Rp*Math.sin(ph),rp,-2,T+2,'PIN_'+(j+1)))}
  const o=ax(pt(0,0,0),dr(0,0,1),dr(1,0,0));
  const lu=add("(LENGTH_UNIT()NAMED_UNIT(*)SI_UNIT(.MILLI.,.METRE.))"),au=add("(NAMED_UNIT(*)PLANE_ANGLE_UNIT()SI_UNIT($,.RADIAN.))"),su=add("(NAMED_UNIT(*)SI_UNIT($,.STERADIAN.)SOLID_ANGLE_UNIT())"),
@@ -296,16 +335,38 @@ function step(T){const{Rp,rp,e,N}=P,E=[];let id=0;
  add(`SHAPE_DEFINITION_REPRESENTATION(${R(ps)},${R(sr)})`);add(`PRODUCT_RELATED_PRODUCT_CATEGORY('part','',(${R(pr)}))`);
  return "ISO-10303-21;\nHEADER;\nFILE_DESCRIPTION(('Cycloidal drive'),'2;1');\nFILE_NAME('cycloidal.step','2026-11-01T00:00:00',(''),(''),'','','');\nFILE_SCHEMA(('AUTOMOTIVE_DESIGN { 1 0 10303 214 1 1 1 1 }'));\nENDSEC;\nDATA;\n"+E.join('\n')+"\nENDSEC;\nEND-ISO-10303-21;\n"}
 let DL=null;
+function dlBlob(name,data,mime){
+ const bl=data instanceof Blob?data:new Blob([data],{type:mime||'application/octet-stream'});
+ const url=URL.createObjectURL(bl),a=document.createElement('a');
+ a.href=url;a.download=name;a.style.display='none';document.body.appendChild(a);a.click();
+ setTimeout(()=>{try{a.remove();URL.revokeObjectURL(url)}catch(_){}},2500);
+ return bl.size}
 async function ex(kind){const m=$('exmsg');
- if(!P.ok){m.textContent='請先讓所有檢查全部通過再匯出。';return}
- const T=Math.max(1,+$('thk').value||10),base=`cycloidal_i${P.i}_D${P.Db}`;
- try{const txt=kind=='dxf'?dxf():step(T);if(!txt||txt.length<100)throw new Error('產生的內容是空的');
-  if(!DL){const bl=new Blob([txt],{type:'application/octet-stream'}),a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=base+'.'+kind;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);m.textContent='已下載 '+base+'.'+kind+'('+(bl.size/1024).toFixed(1)+' KB)。';return}
-  const raw=$('ztxt').checked,u=raw?null:zip(base+'.'+kind,txt),data=raw?txt:u.buffer.slice(0),fn=raw?base+'_'+kind+'.txt':base+'_'+kind+'.zip',kb=((raw?new TextEncoder().encode(txt).length:u.length)/1024).toFixed(1);
-  await DL.save({filename:fn,data});m.textContent='已匯出 '+fn+'('+kb+' KB,內容 '+txt.length+' 字元)。'+(raw?'請把副檔名 .txt 改成 .'+kind+'。':'解壓縮後取得 .'+kind+' 檔。')}
- catch(err){m.textContent=err&&err.code=='declined'?'已取消匯出。':'匯出失敗:'+((err&&err.message)||err)}}
+ if(!P||!P.N){m.textContent='請先完成計算。';return}
+ if(!P.ok&&!$('forceEx').checked){m.textContent='檢查未全部通過，無法匯出。請調整參數或勾選「強制匯出」。';return}
+ const T=Math.max(1,+$('thk').value||10),base='cycloidal_i'+P.i+'_D'+P.Db,raw=$('ztxt').checked;
+ m.textContent='正在產生 '+kind.toUpperCase()+'…';
+ try{
+  const txt=kind=='dxf'?dxf():step(T);
+  if(!txt||txt.length<100)throw new Error('產生的內容是空的');
+  const warn=P.ok?'':'（強制匯出，檢查未全過）';
+  /* 優先瀏覽器本機下載（最穩） */
+  if(raw){
+   const fn=base+'_'+kind+'.txt',sz=dlBlob(fn,txt,'text/plain;charset=utf-8');
+   m.textContent='已下載 '+fn+' ('+(sz/1024).toFixed(1)+' KB)'+warn+'。請把副檔名 .txt 改成 .'+kind+'。';
+  }else{
+   const u=zip(base+'.'+kind,txt),fn=base+'_'+kind+'.zip',sz=dlBlob(fn,u,'application/zip');
+   m.textContent='已下載 '+fn+' ('+(sz/1024).toFixed(1)+' KB)'+warn+'。解壓後取得 .'+kind+'。';
+  }
+  /* 若環境有額外下載 API 再試一次（可忽略失敗） */
+  if(DL){try{const payload=raw?txt:zip(base+'.'+kind,txt);await DL.save({filename:raw?base+'_'+kind+'.txt':base+'_'+kind+'.zip',data:raw?txt:(payload.buffer?payload.buffer.slice(0):payload)})}catch(_){}}
+ }catch(err){
+  const msg=(err&&err.message)||String(err);
+  m.textContent=err&&err.code=='declined'?'已取消匯出。':'匯出失敗: '+msg+'。可改勾「存成純文字 .txt」再試。';
+  console.error(err)}
+}
 $('bdxf').onclick=()=>ex('dxf');$('bstp').onclick=()=>ex('step');
-try{window.claude&&window.claude.use('downloads').then(d=>{DL=d;if(d)$('exbox').style.display='block'}).catch(()=>{})}catch(_){}
+try{window.claude&&window.claude.use&&window.claude.use('downloads').then(d=>{DL=d}).catch(()=>{})}catch(_){}
 let REVR=null;
 function solveRev(hold){const box=$('rev'),keep=$('k1').value,ok=[],mine=$('mine').checked;
  const rth=Math.max(1,+$('rhomin').value||1.25),mUth=rth-1;

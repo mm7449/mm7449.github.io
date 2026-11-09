@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-Hant"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>擺線針輪(賽驅樂)減速機計算器 V3</title>
+<title>擺線針輪(賽驅樂)減速機計算器</title>
 <style>
 :root{--bg:#f6f7f9;--card:#fff;--tx:#1d2330;--mut:#667085;--bd:#d9dde5;--ac:#2563eb;--ok:#16a34a;--bad:#dc2626;--pin:#d97706;--disc:#2563eb;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 @media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#12151c;--card:#1b1f2a;--tx:#e8eaf0;--mut:#98a2b3;--bd:#323848;--ac:#60a5fa;--ok:#4ade80;--bad:#f87171;--pin:#fbbf24;--disc:#60a5fa}}
@@ -25,7 +25,7 @@ canvas{width:100%;aspect-ratio:1;max-height:640px;display:block;border-radius:8p
 table.guide td,table.guide td:last-child{text-align:left;font-variant-numeric:normal;vertical-align:top}
 table.guide td:first-child:not([colspan]){white-space:nowrap;width:7.2em;color:var(--mut)}
 </style></head><body>
-<h1>擺線針輪(賽驅樂)減速機 計算器 V3</h1>
+<h1>擺線針輪(賽驅樂)減速機 計算器</h1>
 <div class="wrap">
 <div>
  <div class="card"><h2>輸入條件</h2>
@@ -36,8 +36,10 @@ table.guide td:first-child:not([colspan]){white-space:nowrap;width:7.2em;color:v
    <label>外滾柱外徑 2rp (mm)</label><input type="number" id="rpd" value="11.46" min="0.5" step="0.01">
    <div class="lg" id="pinwarn" style="font-weight:600"></div>
    <button id="brev">反推偏心量與擺線盤</button><div class="lg">此模式以上方「軸承最大外徑」作為上限檢查(外滾柱最大外徑 = 中心圓直徑 + 外徑);針徑比 q 不使用。</div></div>
-  <label><span>短幅係數 K1 = e·N / Rp</span><b id="k1v"></b></label><input type="range" id="k1" min="0.1" max="0.98" step="0.01" value="0.6">
+  <label><span>短幅係數 K1 = e·N / Rp</span><b id="k1v"></b></label><input type="range" id="k1" min="0.1" max="0.98" step="any" value="0.6">
   <div class="lg" id="k1hint"></div>
+  <label>偏心量 e (mm,可直接輸入,與 K1 連動)</label><input type="number" id="ein" min="0" step="0.001">
+  <div class="lg" id="ehint">輸入 e 後會換算成 K1 = e·N / Rp(K1 範圍 0.10～0.98);拖曳 K1 滑桿時此欄會同步更新。</div>
   <label><span>針徑比 q(針徑 / 針距弦長)</span><b id="qv"></b></label><input type="range" id="q" min="0.2" max="0.8" step="0.01" value="0.5">
   <label>滾柱槽單邊間隙 c (mm)</label><input type="number" id="gc" value="0.03" min="0" step="0.01">
   <label>殼體孔與擺線盤最小間隙 g (mm)</label><input type="number" id="gg" value="0.3" min="0" step="0.05">
@@ -145,7 +147,8 @@ function clear(th){ // 每支針的最小間隙
 function show(){
  const f=(v,n=3)=>v.toFixed(n);
  if(!FAST&&$('mode').value=='rev')renderRev();
- $('k1v').textContent=f(+$('k1').value,2);$('qv').textContent=f(+$('q').value,2);
+ $('k1v').textContent=(+(+$('k1').value).toFixed(3)).toString();
+ if(!FAST){const ei=$('ein');if(ei&&document.activeElement!==ei)ei.value=(+P.e.toFixed(4)).toString();}$('qv').textContent=f(+$('q').value,2);
  {const k1=+$('k1').value,kh=$('k1hint');
   if(kh) kh.textContent=k1<0.45?'K1 偏低：齒很淺、承載偏小，僅在空間極緊時使用。':k1<0.6?'0.45～0.60：齒淺、齒尖圓鈍、不易過切。適合小偏心、要平順低噪音、加工要好做。':k1<=0.75?'0.60～0.75：齒深與尖銳度較平衡，多數減速機落在這裡。':k1<=0.85?'0.75～0.85：齒較深、理論承載較高，但齒頂開始變尖，需確認 ρmin/rp 仍達標。':'> 0.85：齒頂很容易偏尖，嚴格模式常判不合格，一般不建議。';}
  const b=(ok,t)=>`<span class="badge ${ok?'ok':'bad'}">${ok?'✔':'✘'} ${t}</span>`;
@@ -421,5 +424,15 @@ $('mode').onchange=setMode;$('brev').onclick=()=>solveRev(false);
 $('mine').addEventListener('change',()=>{if($('mode').value=='rev')solveRev(false);else calc()});
 $('strictS').addEventListener('change',()=>{if($('mode').value=='rev')solveRev(false);else calc()});
 ['ratio','dmax','k1','q','gc','gg','rpcd','rpd','emax','rhomin'].forEach(id=>$(id).addEventListener('input',run));
+/* 偏心量直接輸入: K1 = e·N/Rp */
+$('k1').addEventListener('input',()=>{$('k1').value=(Math.round(+$('k1').value*100)/100).toString()});
+$('ein').addEventListener('input',()=>{
+ const ev=parseFloat($('ein').value),h=$('ehint');if(!(ev>0)||!P)return;
+ let k=ev*P.N/P.Rp,lo=0.1,hi=0.98,msg='';
+ if(k<lo){k=lo;msg='輸入值低於下限,已限制為 K1=0.10(e='+(lo*P.Rp/P.N).toFixed(4)+' mm)。'}
+ else if(k>hi){k=hi;msg='輸入值高於上限,已限制為 K1=0.98(e='+(hi*P.Rp/P.N).toFixed(4)+' mm)。'}
+ h.textContent=msg||'已由 e 換算 K1 = '+k.toFixed(4)+'(K1 = e·N / Rp)。';
+ $('k1').value=k;calc()});
+$('ein').addEventListener('change',()=>{$('ein').value=(+P.e.toFixed(4)).toString()});
 calc();requestAnimationFrame(loop);
 </script></body></html>
